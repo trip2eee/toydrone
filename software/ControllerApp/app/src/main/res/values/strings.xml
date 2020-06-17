@@ -1,0 +1,11 @@
+<resources>
+    <string name="app_name">ControllerApp</string>
+    <string name="app_label">Controller</string>
+    <string name="error">Error</string>
+    <string name="ok">OK</string>
+    <string name="cancel">Cancel</string>
+    <string name="plz_enable_bt">Please enable Bluetooth.</string>
+    <string name="no_paired_dev">No paired device.</string>
+    <string name="bt_dev_list">Bluetooth device list</string>
+    <string name="connection_fail">Failed to connect to </string>
+</resources>

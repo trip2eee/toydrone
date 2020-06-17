@@ -1,0 +1,11 @@
+<resources>
+    <string name="app_name">ControllerApp</string>
+    <string name="app_label">드론 조종기</string>
+    <string name="error">에러</string>
+    <string name="ok">확인</string>
+    <string name="cancel">취소</string>
+    <string name="plz_enable_bt">블루투스를 켜주세요.</string>
+    <string name="no_paired_dev">페어링된 장치가 없습니다.</string>
+    <string name="bt_dev_list">블루투스 장치 목록</string>
+    <string name="connection_fail">연결에 실패했습니다. </string>
+</resources>
