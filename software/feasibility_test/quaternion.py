@@ -1,3 +1,10 @@
+"""
+@file quaternion.py
+@brief quaternion library.
+@author trip2eee@gmail.com
+
+"""
+
 import numpy as np
 import sympy as sp
 
@@ -118,67 +125,7 @@ def q_to_r(q):
 
     return R
 
-def solve_qr(qa, qb):
-    qr = np.zeros((4, 1))
-    qr[0][0] = 1
-
-    xa = qa[1]
-    ya = qa[2]
-    za = qa[3]
-
-    xb = qb[1]
-    yb = qb[2]
-    zb = qb[3]
-
-    a = np.array([[xa], 
-                  [ya], 
-                  [za]])
-
-    b = np.array([[1],
-                  [xb],
-                  [yb],
-                  [zb]])
-    
-    for iter in range(5):
-        q0 = qr[0][0]
-        q1 = qr[1][0]
-        q2 = qr[2][0]
-        q3 = qr[3][0]
-
-        f = np.matrix([[q0**2 + q1**2 + q2**2 + q3**2], 
-                       [xa*(q0**2 + q1**2 - q2**2 - q3**2) + ya*(-2*q0*q3 + 2*q1*q2) + za*(2*q0*q2 + 2*q1*q3)], 
-                       [xa*(2*q0*q3 + 2*q1*q2) + ya*(q0**2 - q1**2 + q2**2 - q3**2) + za*(-2.0*q1**2 - 2.0*q3**2 + 1.0)], 
-                       [xa*(-2*q0*q2 + 2*q1*q3) + ya*(2*q0*q1 + 2*q2*q3) + za*(q0**2 - q1**2 - q2**2 + q3**2)]])
-
-        Jq = np.matrix([[2*q0, 2*q1, 2*q2, 2*q3], 
-                        [2*q0*xa + 2*q2*za - 2*q3*ya, 2*q1*xa + 2*q2*ya + 2*q3*za, 2*q0*za + 2*q1*ya - 2*q2*xa, -2*q0*ya + 2*q1*za - 2*q3*xa], 
-                        [2*q0*ya + 2*q3*xa, -2*q1*ya - 4.0*q1*za + 2*q2*xa, 2*q1*xa + 2*q2*ya, 2*q0*xa - 2*q3*ya - 4.0*q3*za], 
-                        [2*q0*za + 2*q1*ya - 2*q2*xa, 2*q0*ya - 2*q1*za + 2*q3*xa, -2*q0*xa - 2*q2*za + 2*q3*ya, 2*q1*xa + 2*q2*ya + 2*q3*za]])
-        
-        # Hessian
-        Jqt = Jq.transpose()
-        H = np.matmul(Jqt, Jq) + np.identity(4) * 0.0001
-        invH = np.linalg.inv(H)
-        
-        # residual
-        res = f - b
-
-        # norm of residual.
-        n_res = np.linalg.norm(res)
-        print("{0}: {1}".format(iter, n_res))
-
-        # steepest descent
-        sd = np.matmul(Jqt, res)
-
-        delta_qr = -np.matmul(invH, sd)
-
-        qr += delta_qr
-
-        print(delta_qr)
-
-    return qr
-
-def solve_qr_lm(qa, qb, qr0=None):
+def solve_qr(qa, qb, qr0=None):
 
     if qr0 is not None:
         qr = qr0.reshape((4,1))
@@ -280,18 +227,25 @@ def solve_qr_lm(qa, qb, qr0=None):
         if n_res_lm < 1e-10:
             break
 
-        #print(qr_lm)
-
     return np.array(qr_lm).flatten()
 
-def symbolic_solve_qr(qa, qb):
-
+def symbolic_solve_qr():
+    """
     xa, ya, za = sp.symbols("xa ya za")
     A = sp.Matrix([[xa], 
                    [ya], 
                    [za]])
 
     q0, q1, q2, q3 = sp.symbols("q0 q1 q2 q3")
+    """
+
+    xa, ya, za = sp.symbols("a_x a_y a_z")
+    A = sp.Matrix([[xa], 
+                   [ya], 
+                   [za]])
+
+    q0, q1, q2, q3 = sp.symbols("r_0 r_1 r_2 r_3")
+
     """
     r00 = 1.0 - 2.0*(q2*q2 + q3*q3)
     r01 = 2*(q1*q2 - q0*q3)
@@ -323,11 +277,12 @@ def symbolic_solve_qr(qa, qb):
                    [r10*xa + r11*ya + r12*za],
                    [r20*xa + r21*ya + r22*za]])
     
-    c = F.subs([(q0, 0), (q1, 0), (q2, 0), (q3, 0)])
+    #c = F.subs([(q0, 0), (q1, 0), (q2, 0), (q3, 0)])
     
     print("F")
-    print(F)
-    
+    #print(F)
+    print(sp.latex(F))
+
     #print("F_q0")
     F_q0 = F.diff(q0)
     #print(F_q0)
@@ -350,9 +305,9 @@ def symbolic_solve_qr(qa, qb):
     Jq = Jq.row_join(F_q3)
 
     print("Jq")
-    print(Jq)
+    #print(Jq)
+    print(sp.latex(Jq))
 
-    return F
 
 
 def q_to_angle(q):
@@ -400,7 +355,7 @@ if __name__ == "__main__":
     #qb = np.array([0, np.sqrt(2/3), np.sqrt(1/3), 0])
     #qb = np.array([0, 0, 1, 0])
 
-    #qr = symbolic_solve_qr(qa, qb)
+    symbolic_solve_qr()
 
     qa = np.array([0.0, 1.0, 0.0, 0.0])
     qb = np.array([0.0, 0.0, np.sqrt(1/2), np.sqrt(1/2)])
@@ -412,7 +367,7 @@ if __name__ == "__main__":
     qr0 = angle_to_q(param0[0], param0[1], param0[2])
 
     print("solve")
-    qr = solve_qr_lm(qa, qb, qr0=qr0)
+    qr = solve_qr(qa, qb, qr0=qr0)
 
     print("qr: {0}".format(qr))
 
@@ -440,6 +395,9 @@ if __name__ == "__main__":
     ax.scatter(qb[1], qb[2], qb[3], c='b', marker='o')
     ax.scatter(qb2[1], qb2[2], qb2[2], c='g', marker='x')
     ax.text(qb2[1], qb2[2], qb2[2], "reprojected")
+
+    plt.legend(['v1', 'v2', 'reproj'])
+    plt.title("Quaternion based rotation")
 
     plt.show()
 
