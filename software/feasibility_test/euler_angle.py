@@ -34,7 +34,7 @@ def compute_R(roll, pitch, yaw):
 
     return R
 
-def solve_angle(pt1, pt2, param0=None):
+def solve_angle(v1, v2, param0=None):
 
     # solution: roll, pitch, yaw
     if param0 is not None:
@@ -45,11 +45,11 @@ def solve_angle(pt1, pt2, param0=None):
 
 
 
-    x = pt1[0]
-    y = pt1[1]
-    z = pt1[2]
+    x = v1[0]
+    y = v1[1]
+    z = v1[2]
 
-    pt_target = np.matrix([[pt2[0]], [pt2[1]], [pt2[2]]])
+    pt_target = np.matrix([[v2[0]], [v2[1]], [v2[2]]])
 
     roll = param_lm[0,0]
     pitch = param_lm[1,0]
@@ -73,6 +73,7 @@ def solve_angle(pt1, pt2, param0=None):
 
     mu = 1e-4
 
+    # repeat
     for iter in range(10):
 
         H = np.matmul(Jxt, Jx) + np.identity(3) * mu
@@ -128,8 +129,11 @@ def solve_angle(pt1, pt2, param0=None):
 
 
 def symbolic_solve():
+    #x, y, z = sp.symbols("x y z")
+    #pitch, yaw, roll = sp.symbols("pitch yaw roll")
+
     x, y, z = sp.symbols("x y z")
-    pitch, yaw, roll = sp.symbols("pitch yaw roll")
+    pitch, yaw, roll = sp.symbols("\\theta \psi \phi")
 
     # rotation matrix.
     # rotation with repsect to x-axis (roll)
@@ -156,8 +160,14 @@ def symbolic_solve():
 
     f = R * pt
 
+
     print("f")
-    print(f)
+    print(sp.latex(Rx))
+    print(sp.latex(Ry))
+    print(sp.latex(Rz))
+
+    #print(sp.latex(f))
+    #print(f)
 
     print("Jacobian")
     J_roll = f.diff(roll)
@@ -174,38 +184,34 @@ def symbolic_solve():
 
 
 if __name__ == "__main__":
-    #symbolic_solve()
+    symbolic_solve()
 
-    pt1 = np.array([1.0, 0.0, 0.0])
-    pt2 = np.array([0.0, np.sqrt(1/2), np.sqrt(1/2)])
+    v1 = np.array([1.0, 0.0, 0.0])
+    v2 = np.array([0.0, np.sqrt(1/2), np.sqrt(1/2)])
     
 
     param0 = np.array([0.0, 0.0, 0.0])
-    #param0[1] = np.pi * 0.5
+    param0[1] = np.pi * 0.5 - 0.001
 
-    R = compute_R(param0[0], param0[1], param0[2])
-    print(R)
-    
-
-    roll, pitch, yaw = solve_angle(pt1, pt2, param0=param0)
+    roll, pitch, yaw = solve_angle(v1, v2, param0=param0)
 
     R = compute_R(roll, pitch, yaw)
-    pt_reproj = np.matmul(R, pt1.transpose())
+    v_reproj = np.matmul(R, v1.transpose())
 
     print("roll, pitch, yaw : {0}, {1}, {2}".format(roll * 180 / np.pi, pitch * 180 / np.pi, yaw * 180 / np.pi))
 
     fig = plt.figure(1)
     ax = fig.add_subplot(111, projection='3d')  # 3D Axes
 
-    ax.scatter(pt1[0], pt1[1], pt1[2], c='r', marker='o')
-    ax.scatter(pt2[0], pt2[1], pt2[2], c='b', marker='o')
-    ax.scatter(pt_reproj[0], pt_reproj[1], pt_reproj[2], c='g', marker='x')
-    ax.text(pt_reproj[0], pt_reproj[1], pt_reproj[2], "reprojected")
+    ax.scatter(v1[0], v1[1], v1[2], c='r', marker='o')
+    ax.scatter(v2[0], v2[1], v2[2], c='b', marker='o')
+    ax.scatter(v_reproj[0], v_reproj[1], v_reproj[2], c='g', marker='x')
+    ax.text(v_reproj[0], v_reproj[1], v_reproj[2], "reprojected")
     
-    # Draw axes.
-    
+    plt.legend(['v1', 'v2', 'Rv1'])
+    plt.title('Euler angle - Gimbal lock')
 
-
+    plt.savefig('euler_result_gimbal_lock.png')
     plt.show()
 
     
