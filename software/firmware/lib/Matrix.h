@@ -23,12 +23,12 @@ public:
 
     }
 
-    CMatrix(CMatrix<_T, ROWS, COLS>& other)
+    CMatrix(const CMatrix<_T, ROWS, COLS>& other)
     {
         (void)memcpy(&m_arfMatrix[0], &other.m_arfMatrix[0], sizeof(m_arfMatrix));
     }
 
-    CMatrix(CMatrix<_T, ROWS, COLS>&& other)
+    CMatrix(const CMatrix<_T, ROWS, COLS>&& other)
     {
         (void)memcpy(&m_arfMatrix[0], &other.m_arfMatrix[0], sizeof(m_arfMatrix));
     }
