@@ -13,6 +13,7 @@
 #include <string.h>
 #include <cfloat>
 #include <cmath>
+#include <stdexcept>
 
 template <typename _T, uint8_t ROWS, uint8_t COLS>
 class CMatrix
@@ -38,7 +39,6 @@ public:
         SetArray(arfArray);
     }
     
-
     uint8_t GetRows()
     {
         return ROWS;
@@ -76,6 +76,17 @@ public:
         }
     }
 
+    _T Norm()
+    {
+        _T fSqrSum = 0.0F;
+        for(uint8_t u8I = 0U; u8I < (ROWS*COLS); u8I++)
+        {
+            fSqrSum += m_arfMatrix[u8I] * m_arfMatrix[u8I];
+        }
+
+        const _T fNorm = sqrtf(fSqrSum);
+        return fNorm;
+    }
     void Identity()
     {
         (void)memset(&m_arfMatrix[0], 0, sizeof(m_arfMatrix));
@@ -193,6 +204,11 @@ public:
         return oC;
     }
 
+    /**
+     * @fn     CMatrix<_T, ROWS, COLS> Invert()
+     * @brief  This method inverts this matrix.
+     * @return Inverse of the matrix.
+    */
     CMatrix<_T, ROWS, COLS> Invert()
     {
         CMatrix<_T, ROWS, COLS> oB;
@@ -252,6 +268,12 @@ public:
         return oB;
     }
 
+    /**
+     * @fn     CMatrix<_T, ROWS, 1U> Solve(const CMatrix<_T, ROWS, 1U>& oB)
+     * @brief  This method solves linear equation Ax = b.
+     * @param  oB: Vector b of the linear equation.
+     * @return Solution vector x.
+    */
     CMatrix<_T, ROWS, 1U> Solve(const CMatrix<_T, ROWS, 1U>& oB)
     {
         CMatrix<_T, ROWS, 1U> oX;
@@ -299,6 +321,12 @@ public:
         return oX;
     }
 
+    /**
+     * @fn     CMatrix<_T, ROWS, COLS> InvertSymmetric()
+     * @brief  This method inverts this matrix more efficiently under assumption that the matrix is symmetric. 
+     *         This method only requires lower triangular part of the matrix.
+     * @return Inverse of the matrix.
+    */
     CMatrix<_T, ROWS, COLS> InvertSymmetric()
     {
         CMatrix<_T, ROWS, COLS> oB;
@@ -350,7 +378,8 @@ public:
 
     /**
      * @fn    CMatrix<_T, ROWS, COLS> SolveSymmetric(CMatrix<_T, ROWS, 1U> oB)
-     * @brief This method solves lineary equation Ax = b, where A is symmetric. Lower triangular part has to have valid values.
+     * @brief This method solves lineary equation Ax = b more efficiently under assumption that A is symmetric.
+     *        This method only requires lower triangular part of the matrix.
      * @param oB b vector.
      * @return Solution vector x.
     */
