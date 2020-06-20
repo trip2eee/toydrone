@@ -14,9 +14,7 @@ TEST(CMatrixTest, SetArray)
     CMatrix<float32_t, 2U, 2U> oA;
     
     const float32_t arf32A[] = {1.0F, 2.0F, 3.0F, 4.0F};
-    oA.SetArray(&arf32A[0]);
-
-    oA.Print();
+    oA.SetArray(arf32A);
 
     for(uint8_t u8I = 0U; u8I < (oA.GetRows() * oA.GetCols()); u8I++)
     {
@@ -178,9 +176,14 @@ TEST(CMatrixTest, lup)
     uint8_t pu8P[3U];
     float32_t arf32LU[9U];
     
-    const uint8_t u8Valid = oA.DecomposeLUP(pu8P, arf32LU);
-
-    EXPECT_EQ(u8Valid, 1U);
+    try
+    {
+        oA.DecomposeLUP(pu8P, arf32LU);
+    }
+    catch(const std::exception& e)
+    {
+        std::cerr << e.what() << '\n';
+    }
 
     for(uint8_t u8I = 0U; u8I < oA.GetRows(); u8I++)
     {
@@ -196,11 +199,143 @@ TEST(CMatrixTest, lup)
 
 TEST(CMatrixTest, solve)
 {
+    const float32_t arf32A[] = {1.0F, 2.0F, 4.0F, 1.0F};
+    const float32_t arf32B[] = {1.0F, 2.0F};
+    const float32_t arf32X_exp[] = {0.42857F, 0.28571F};
 
+    CMatrix<float32_t, 2, 2> oA(arf32A);
+    CMatrix<float32_t, 2, 1> oB(arf32B);
+    CMatrix<float32_t, 2, 1> oX;
+    CMatrix<float32_t, 2, 1> oC;
+
+    try
+    {
+        oX = oA.Solve(oB);
+    }
+    catch(const std::exception& e)
+    {
+        std::cerr << e.what() << '\n';
+    }
+        
+    oC = oA * oX;
+
+    for(uint8_t u8I = 0U; u8I < oX.GetRows(); u8I++)
+    {
+        EXPECT_NEAR(oX.m_arfMatrix[u8I], arf32X_exp[u8I], 1e-5F);
+        EXPECT_FLOAT_EQ(oC.m_arfMatrix[u8I], arf32B[u8I]);
+    }
 }
 
 
 TEST(CMatrixTest, inverse)
 {
+    const float32_t arf32A[] = { 1.0F,  2.0F,  4.0F, 
+                                 1.0F, -1.0F, -2.0F,
+                                -1.0F, 10.0F,  3.0F};
+    CMatrix<float32_t, 3, 3> oA(arf32A);
+    CMatrix<float32_t, 3, 3> oB;
+    CMatrix<float32_t, 3, 3> oI;
+
+    try
+    {
+        oB = oA.Invert();
+    }
+    catch(const std::exception& e)
+    {
+        std::cerr << e.what() << '\n';
+    }
+
+    oI = oA * oB;
+
+    for(uint8_t u8I = 0U; u8I < oI.GetRows(); u8I++)
+    {
+        for(uint8_t u8J = 0U; u8J < oI.GetRows(); u8J++)
+        {
+            if(u8I == u8J)
+            {
+                EXPECT_NEAR(oI(u8I, u8J), 1.0F, 1e-6F);
+            }
+            else
+            {
+                EXPECT_NEAR(oI(u8I, u8J), 0.0F, 1e-6F);
+            }
+                    
+        }
+    }
+}
+
+TEST(CMatrixTest, solveSymmetric)
+{
+    const float32_t arf32A[] = { 2.0F, 10.0F, 
+                                10.0F,  1.0F};
+    const float32_t arf32B[] = {1.0F, 
+                                2.0F};
+
+    CMatrix<float32_t, 2U, 2U> oA(arf32A);
+    CMatrix<float32_t, 2U, 1U> oB(arf32B);
+    CMatrix<float32_t, 2U, 1U> oC(arf32B);
+    CMatrix<float32_t, 2U, 1U> oX;
+
+    try
+    {
+        oX = oA.SolveSymmetric(oB);
+    }
+    catch(const std::exception& e)
+    {
+        std::cerr << e.what() << '\n';
+    }    
+
+    // oC = oA * oX;
+
+    // for(uint8_t u8I = 0U; u8I < oC.GetRows(); u8I++)
+    // {
+    //     EXPECT_NEAR(oC(u8I), arf32B[u8I], 1e-5F);
+    // }
+
+}
+
+TEST(CMatrixTest, invertSymmetric)
+{
+    // Lower triangular matrix.
+    const float32_t arf32L[] = {2.0F,  0.0F, 0.0F,
+                                10.0F, 1.0F, 0.0F,
+                                20.0f, 0.0F, 1.0F};
+
+    const float32_t arf32A[] = {2.0F, 10.0F, 20.0F,
+                                10.0F, 1.0F, 0.0F,
+                                20.0f, 0.0F, 1.0F};                                
+
+    CMatrix<float32_t, 3U, 3U> oA(arf32L);
+    CMatrix<float32_t, 3U, 3U> oB;
+    CMatrix<float32_t, 3U, 3U> oI;
+
+    try
+    {
+        oB = oA.InvertSymmetric();
+    }
+    catch(const std::exception& e)
+    {
+        std::cerr << e.what() << '\n';
+    }
     
+    oA.SetArray(arf32A);
+
+    oI = oA * oB;
+
+    for(uint8_t u8I = 0U; u8I < oI.GetRows(); u8I++)
+    {
+        for(uint8_t u8J = 0U; u8J < oI.GetRows(); u8J++)
+        {
+            if(u8I == u8J)
+            {
+                EXPECT_NEAR(oI(u8I, u8J), 1.0F, 1e-5F);
+            }
+            else
+            {
+                EXPECT_NEAR(oI(u8I, u8J), 0.0F, 1e-5F);
+            }
+                    
+        }
+    }   
+
 }
