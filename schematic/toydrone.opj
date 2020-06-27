@@ -14,6 +14,10 @@
   (Folder "Referenced Projects")
   (MPSSessionName "JMPark")
   (PartMRUSelector
+    (AP7361C-33E-13
+      (FullPartName "AP7361C-33E-13.Normal")
+      (LibraryName "D:\WORK\TOYDRONE\SCHEMATIC\LIB_TOYDRONE.OLB")
+      (DeviceIndex "0"))
     (C
       (FullPartName "C.Normal")
       (LibraryName
@@ -84,7 +88,9 @@
          "Design Cache")
       (Path "Design Resources" "Library")
       (Path "Design Resources" "Library"
-         "d:\work\toydrone\schematic\lib_toydrone.olb"))
+         "d:\work\toydrone\schematic\lib_toydrone.olb")
+      (Select "Design Resources" "d:\work\toydrone\schematic\toydrone.dsn"
+         "Design Cache" "AP7361C-33E-13"))
     (HierarchyView)
     (Doc
       (Type "COrCapturePMDoc")
@@ -95,7 +101,7 @@
       (Type "COrSchematicDoc")
       (Frame
         (Placement "44 2 3 -1 -1 -8 -31 52 2227 52 741")
-        (Scroll "-542 22")
+        (Scroll "-395 22")
         (Zoom "144")
         (Occurrence "/"))
       (Path "D:\WORK\TOYDRONE\SCHEMATIC\TOYDRONE.DSN")
