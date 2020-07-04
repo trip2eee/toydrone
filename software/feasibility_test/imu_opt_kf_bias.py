@@ -27,14 +27,15 @@ def compute_q(y):
     weight_m = 1
     
     y_a = y[0:3]
-    y_w = y[3:6] * np.pi / 180.0     # deg/s -> rad/s
     y_m = y[6:9]
-    T = y[9] * 1e-6                 # us -> s
 
     # normalize.
     y_a = y_a / np.linalg.norm(y_a)
     y_m = y_m / np.linalg.norm(y_m)
 
+    y_m = np.cross(y_a, np.cross(y_m, y_a))
+    y_m = y_m / np.linalg.norm(y_m)
+    
     qr = np.matrix([[1.0], [0.0], [0.0], [0.0]])
 
     q0 = qr[0, 0]
@@ -56,9 +57,9 @@ def compute_q(y):
                   [0],
                   [-1 * weight_a],
 
-                  [0 * weight_m],
+                  [1 * weight_m],
                   [0],
-                  [1 * weight_m]])
+                  [0]])
     
     mu = 1e-4
     
@@ -173,7 +174,7 @@ def compute_q(y):
 
         if n_res_lm < 1e-10:
             break
-
+    
     result = np.array(qr_lm).flatten()
     result = result / np.linalg.norm(result)
 
@@ -191,20 +192,19 @@ if __name__ == "__main__":
             if l_data == "":
                 break
             l_data = l_data.split()[2:]
+
+            if len(l_data) != 10:
+                print("Error")
+                
             for l in l_data:
                 sensor_data.append(float(l))
 
     sensor_data = np.reshape(sensor_data, (-1, 10))
-    #sensor_data[:,6] *= -1.0
 
+    # coordinate change.
     sensor_data[:,2] *= -1.0        # negate z_a
 
     sensor_data[:,5] *= -1.0        # negate z_w
-
-    #x_m = sensor_data[:,8] * -1.0
-    #z_m = sensor_data[:,6] * -1.0
-    #sensor_data[:,6] = x_m
-    #sensor_data[:,8] = z_m
 
     sensor_data[:,6] *= -1.0        # negate x_m
     sensor_data[:,8] *= -1.0        # negate z_m
@@ -213,17 +213,21 @@ if __name__ == "__main__":
     seq_len = sensor_data.shape[0]
 
     # Kalman filter state history
-    hist_a  = np.zeros((seq_len, 3))      # states.
-    hist_ap = np.zeros((seq_len, 3))      # predicted states.
-    hist_z = np.zeros((seq_len, 3))      # predicted states.
-    hist_bias_w = np.zeros((seq_len, 3))      # predicted states.
+    hist_angle  = np.zeros((seq_len, 3))          # states.
+    hist_angle_pred = np.zeros((seq_len, 3))      # predicted states.
+    
+    hist_q_z  = np.zeros((seq_len, 4))         # quaternion measurements
+    hist_angle_z = np.zeros((seq_len, 3))      # angle of quaternion measurements.
+    
+    hist_bias_w = np.zeros((seq_len, 3))        # gyroscope bias history
+    hist_q = np.zeros((seq_len, 4))             # quaternion
+    hist_q_pred = np.zeros((seq_len, 4))        # predicted quaternion
 
-        
     qr = compute_q(sensor_data[0,:])
     qr = qr / np.linalg.norm(qr)
-    #qr = qt.qconj(qr)
+
     roll, pitch, yaw = qt.q_to_angle(qr)
-    hist_z[0,:] = [roll, pitch, yaw]
+    hist_angle_z[0,:] = [roll, pitch, yaw]
 
     y_w = sensor_data[0,3:6] * np.pi / 180.0
 
@@ -233,28 +237,31 @@ if __name__ == "__main__":
                    [qr[3]],
                    [y_w[0]],
                    [y_w[1]],
-                   [y_w[2]]]) 
-    
-    sensor_data[0,3:6] = sensor_data[0,3:6] / np.linalg.norm(sensor_data[0,3:6])
-    sensor_data[0,6:9] = sensor_data[0,6:9] / np.linalg.norm(sensor_data[0,6:9])
+                   [y_w[2]]]).astype(np.float32)
 
     xp = x
 
-    hist_bias_w[0,:] = np.array(x[4:7, 0]).flatten()
+    hist_angle[0,:] = [roll, pitch, yaw]
+    hist_angle_pred[0,:] = [roll, pitch, yaw]
     
-    sigma_a = 1.0      # accelerometer
-    sigma_w = 1.0 * np.pi / 180.0       # gyroscope
-    sigma_bw = 1.0 * np.pi / 180.0
+    hist_q_z[0,:] = np.array(x[0:4]).flatten()
+    hist_q[0,:] = np.array(x[0:4]).flatten()
+    hist_q_pred[0,:] = np.array(x[0:4]).flatten()
+    hist_bias_w[0,:] = np.array(x[4:7]).flatten()
+    
+    
+    sigma_w = 0.3      # gyroscope
+    sigma_bw = 0.01
     sigma_q = 0.1
-    sigma_q_r = 0.1
+    sigma_q_r = 0.15
 
     
-    P = np.eye(7) * (0.1 * 0.1)
+    P = np.eye(7).astype(np.float32) * (0.1 * 0.1)
     P[4,4] = sigma_bw * sigma_bw
     P[5,5] = sigma_bw * sigma_bw
     P[6,6] = sigma_bw * sigma_bw
             
-    Qf = np.zeros((7, 7))
+    Qf = np.zeros((7, 7)).astype(np.float32)
     Qf[0,0] = sigma_q * sigma_q
     Qf[1,1] = sigma_q * sigma_q
     Qf[2,2] = sigma_q * sigma_q
@@ -264,14 +271,38 @@ if __name__ == "__main__":
     Qf[5,5] = sigma_bw * sigma_bw
     Qf[6,6] = sigma_bw * sigma_bw
 
-    Qe = np.zeros((3,3))
+    Qe = np.zeros((3,3)).astype(np.float32)
     Qe[0,0] = sigma_w * sigma_w
     Qe[1,1] = sigma_w * sigma_w
     Qe[2,2] = sigma_w * sigma_w
 
         
-    R = np.eye(dim_measurements) * sigma_q_r * sigma_q_r
+    R = np.eye(dim_measurements).astype(np.float32) * sigma_q_r * sigma_q_r
 
+    f = open("imu_test.txt", "w")
+
+    t=0
+    y_a = sensor_data[t,0:3]
+    y_w = sensor_data[t,3:6] * np.pi / 180.0
+    y_m = sensor_data[t,6:9]    
+    T = sensor_data[t,9] * 1e-6
+    
+    f.write("{0} {1} {2} ".format(y_a[0], y_a[1], y_a[2]))
+    f.write("{0} {1} {2} ".format(y_w[0], y_w[1], y_w[2]))
+    f.write("{0} {1} {2} ".format(y_m[0], y_m[1], y_m[2]))
+    f.write("{0} ".format(T))
+
+    sensor_data[0,6:9] = sensor_data[0,6:9] / np.linalg.norm(sensor_data[0,6:9])
+    sensor_data[t,6:9] = np.cross(y_a, np.cross(sensor_data[t,6:9], y_a))
+
+    for v in np.array(x).flatten():
+        f.write("{0} ".format(v))
+    
+    for v in np.array(P).flatten():
+        f.write("{0} ".format(v))
+
+    f.write("\n")
+    
     for t in range(1, seq_len):
         
         y_a = sensor_data[t,0:3]
@@ -279,9 +310,10 @@ if __name__ == "__main__":
         y_m = sensor_data[t,6:9]
         T = sensor_data[t,9] * 1e-6
         
-        y_a = y_a / np.linalg.norm(y_a)
-        y_m = y_m / np.linalg.norm(y_m)
-        
+        y_a = y_a.astype(np.float32)
+        y_w = y_w.astype(np.float32)
+        y_m = y_m.astype(np.float32)
+        T = T.astype(np.float32)
 
         # angular velocity measurements.
         w0 = y_w[0]
@@ -299,7 +331,7 @@ if __name__ == "__main__":
         bw2 = x[6, 0]
 
         # prediction
-        xp = np.zeros((7, 1))
+        xp = np.zeros((7, 1)).astype(np.float32)
         xp[0, 0] = -T*q1*(-bw0 + w0)/2 - T*q2*(-bw1 + w1)/2 - T*q3*(-bw2 + w2)/2 + q0 
         xp[1, 0] =  T*q0*(-bw0 + w0)/2 + T*q2*(-bw2 + w2)/2 - T*q3*(-bw1 + w1)/2 + q1 
         xp[2, 0] =  T*q0*(-bw1 + w1)/2 - T*q1*(-bw2 + w2)/2 + T*q3*(-bw0 + w0)/2 + q2 
@@ -308,7 +340,7 @@ if __name__ == "__main__":
         xp[5, 0] = bw1
         xp[6, 0] = bw2
 
-        F = np.eye(7)
+        F = np.eye(7).astype(np.float32)
         F[0, 0] =  1.0
         F[0, 1] = -T*(w0 - bw0)/2
         F[0, 2] = -T*(w1 - bw1)/2
@@ -348,7 +380,7 @@ if __name__ == "__main__":
         
         #print(F)
 
-        G = np.zeros((7, 3))
+        G = np.zeros((7, 3)).astype(np.float32)
         G[0, 0] =  T*q1/2
         G[0, 1] =  T*q2/2
         G[0, 2] =  T*q3/2
@@ -371,8 +403,13 @@ if __name__ == "__main__":
         # measurement.
         qz = compute_q(sensor_data[t,:])
 
+        q_cur = np.array(qz).flatten()
+        if np.linalg.norm(xp[0:4,0]-q_cur) > np.linalg.norm(xp[0:4,0]+q_cur):
+            qz = -qz
+
+
         # measurement matrix. I
-        H = np.zeros((4, 7))
+        H = np.zeros((4, 7)).astype(np.float32)
         H[0, 0] = 1.0
         H[1, 1] = 1.0
         H[2, 2] = 1.0
@@ -380,23 +417,23 @@ if __name__ == "__main__":
         
         #print(H)
 
-        res = qz.reshape((4,1)) - np.matmul(H, xp)
+        res = qz.reshape((4,1)).astype(np.float32) - np.matmul(H, xp)
         
         S = np.matmul(np.matmul(H, Pp), H.transpose()) + R
-        invS = np.linalg.inv(S)
+        invS = np.linalg.inv(S).astype(np.float32)
 
-        K = np.matmul(np.matmul(Pp, H.transpose()), invS)
+        K = np.matmul(np.matmul(Pp, H.transpose()), invS).astype(np.float32)
 
         x = xp + np.matmul(K, res)
         P = Pp - np.matmul(np.matmul(K, H), Pp)
-        
+    
         #x = xp
 
         x4 = x[0:4,:]
         norm_x = np.linalg.norm(x4)
         Jt4 = np.matmul(x4, x4.transpose())/(norm_x*norm_x*norm_x)
         
-        Jt = np.zeros((7, 7))
+        Jt = np.zeros((7, 7)).astype(np.float32)
         Jt[0:4, 0:4] = Jt4
         Jt[4,4] = 1.0
         Jt[5,5] = 1.0
@@ -404,47 +441,104 @@ if __name__ == "__main__":
 
         x[0:4] = x[0:4] / norm_x
         P = np.matmul(np.matmul(Jt, P), Jt.transpose()) 
+        
+        x = x.astype(np.float32)
+        P = P.astype(np.float32)
 
-    
+        f.write("{0} {1} {2} ".format(y_a[0], y_a[1], y_a[2]))
+        f.write("{0} {1} {2} ".format(y_w[0], y_w[1], y_w[2]))
+        f.write("{0} {1} {2} ".format(y_m[0], y_m[1], y_m[2]))
+        f.write("{0} ".format(T))
+
+        for v in np.array(x).flatten():
+            f.write("{0} ".format(v))
+        
+        for v in np.array(P).flatten():
+            f.write("{0} ".format(v))
+
+        f.write("\n")
+
         norm_xp = np.linalg.norm(xp[0:4])
         xp[0:4] = xp[0:4] / norm_xp
 
         rollp, pitchp, yawp = qt.q_to_angle(np.array(xp).flatten())
-        hist_ap[t, :] = [rollp, pitchp, yawp]
+        if yawp < 0.0:
+            yawp = yawp + (np.pi * 2)
+
+        hist_angle_pred[t, :] = [rollp, pitchp, yawp]
 
         roll, pitch, yaw = qt.q_to_angle(np.array(x).flatten())
-        hist_a[t, :] = [roll, pitch, yaw]
+        
+        if yaw < 0.0:
+            yaw = yaw + (np.pi * 2)
+
+        hist_angle[t, :] = [roll, pitch, yaw]
 
         # measurement.
         qr = compute_q(sensor_data[t,:])
         
         roll, pitch, yaw = qt.q_to_angle(qz)
-        hist_z[t,:] = [roll, pitch, yaw]
-
+        if yaw < 0.0:
+            yaw = yaw + (np.pi * 2)
+            
+        hist_angle_z[t,:] = [roll, pitch, yaw]
+        
         hist_bias_w[t,:] = x[4:7, 0]
-
+        hist_q[t,:] = x[0:4, 0]
+        hist_q_pred[t,:] = xp[0:4, 0]
+        hist_q_z[t,:] = qz
+    
         sensor_data[t,6:9] = sensor_data[t,6:9] / np.linalg.norm(sensor_data[t,6:9])
+        sensor_data[t,6:9] = np.cross(y_a, np.cross(sensor_data[t,6:9], y_a))
+
+    f.close()
+
+    # read the results of C++ implementation.
+    idx_frame = 0
+    hist_xp_cpp = np.zeros((seq_len, 7))
+    hist_x_cpp = np.zeros((seq_len, 7))
+    hist_angle_cpp = np.zeros((seq_len, 3))
+
+    with open("imu_result_cpp.txt", "r") as f:
+
+        while True:
+            l = f.readline()
+
+            if l != "":
+                val = [float(v) for v in l.split()]
+                hist_xp_cpp[idx_frame,:] = val[0:7]
+                hist_x_cpp[idx_frame,:] = val[7:14]
+                hist_angle_cpp[idx_frame, :] = val[14:17]
+                if hist_angle_cpp[idx_frame, 2] < 0.0:
+                    hist_angle_cpp[idx_frame, 2] += 2*np.pi
+                idx_frame += 1
+            else:
+                break
+
 
 
     plt.figure("Angles")
     plt.subplot(311)
-    plt.plot(hist_z[:,0], c='r')
-    plt.plot(hist_ap[:,0], c='c')
-    plt.plot(hist_a[:,0], c='b')    
+    plt.plot(hist_angle_z[:,0], c='r')
+    plt.plot(hist_angle_pred[:,0], c='c')
+    plt.plot(hist_angle[:,0], c='b')
+    plt.plot(hist_angle_cpp[:,0], c='deepskyblue')
     plt.legend(['measurement', 'prediction', 'update'])
     plt.title("roll")
 
     plt.subplot(312)
-    plt.plot(hist_z[:,1], c='r')
-    plt.plot(hist_ap[:,1], c='c')
-    plt.plot(hist_a[:,1], c='b')    
+    plt.plot(hist_angle_z[:,1], c='r')
+    plt.plot(hist_angle_pred[:,1], c='c')
+    plt.plot(hist_angle[:,1], c='b')
+    plt.plot(hist_angle_cpp[:,1], c='deepskyblue')
     plt.legend(['measurement', 'prediction', 'update'])
     plt.title("pitch")
 
     plt.subplot(313)
-    plt.plot(hist_z[:,2], c='r')
-    plt.plot(hist_ap[:,2], c='c')
-    plt.plot(hist_a[:,2], c='b')    
+    plt.plot(hist_angle_z[:,2], c='r')
+    plt.plot(hist_angle_pred[:,2], c='c')
+    plt.plot(hist_angle[:,2], c='b')
+    plt.plot(hist_angle_cpp[:,2], c='deepskyblue')
     plt.legend(['measurement', 'prediction', 'update'])
     plt.title("yaw")
 
@@ -453,16 +547,22 @@ if __name__ == "__main__":
     plt.subplot(311)
     plt.plot(sensor_data[:,3] * np.pi / 180.0,  c='g')
     plt.plot(hist_bias_w[:,0],  c='r')
+    plt.plot(hist_x_cpp[:,4], c='m')
+    plt.legend(['w_x','bias'])
     plt.title("roll rate")
 
     plt.subplot(312)
     plt.plot(sensor_data[:,4] * np.pi / 180.0,  c='g')
     plt.plot(hist_bias_w[:,1],  c='r')
+    plt.plot(hist_x_cpp[:,5], c='m')
+    plt.legend(['w_y','bias'])
     plt.title("pitch rate")
 
     plt.subplot(313)
     plt.plot(sensor_data[:,5] * np.pi / 180.0,  c='g')
     plt.plot(hist_bias_w[:,2],  c='r')
+    plt.plot(hist_x_cpp[:,6], c='m')
+    plt.legend(['w_z','bias'])
     plt.title("yaw rate")
     
 
@@ -492,8 +592,35 @@ if __name__ == "__main__":
     plt.plot(sensor_data[:,8],  c='m')
     plt.title("mz")
     
+    plt.figure("Quaternion")
+    plt.subplot(411)
+    plt.plot(hist_q_z[:,0], c='r')
+    plt.plot(hist_q_pred[:,0], c='g')
+    plt.plot(hist_q[:,0], c='b')
+    plt.plot(hist_xp_cpp[:,0], c='lime')
+    plt.plot(hist_x_cpp[:,0], c='deepskyblue')
 
-    
+    plt.subplot(412)
+    plt.plot(hist_q_z[:,1], c='r')
+    plt.plot(hist_q_pred[:,1], c='g')
+    plt.plot(hist_q[:,1], c='b')
+    plt.plot(hist_xp_cpp[:,1], c='lime')
+    plt.plot(hist_x_cpp[:,1], c='deepskyblue')
+
+    plt.subplot(413)
+    plt.plot(hist_q_z[:,2], c='r')
+    plt.plot(hist_q_pred[:,2], c='g')
+    plt.plot(hist_q[:,2], c='b')
+    plt.plot(hist_xp_cpp[:,2], c='lime')
+    plt.plot(hist_x_cpp[:,2], c='deepskyblue')
+
+    plt.subplot(414)
+    plt.plot(hist_q_z[:,3], c='r')
+    plt.plot(hist_q_pred[:,3], c='g')
+    plt.plot(hist_q[:,3], c='b')
+    plt.plot(hist_xp_cpp[:,3], c='lime')
+    plt.plot(hist_x_cpp[:,3], c='deepskyblue')
+
     plt.show()
 
 

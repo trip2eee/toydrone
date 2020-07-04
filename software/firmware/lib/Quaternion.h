@@ -16,6 +16,7 @@ class Quaternion
 public:
     Quaternion();
     Quaternion(const float32_t f32Q0, const float32_t f32Q1, const float32_t f32Q2, const float32_t f32Q3);
+    Quaternion(const float32_t (&arf32Q)[4U]);
     Quaternion(const Quaternion& other);
     Quaternion(const Quaternion&& other);
 

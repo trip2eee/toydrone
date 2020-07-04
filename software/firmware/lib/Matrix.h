@@ -103,13 +103,18 @@ public:
         (void)memset(&m_arfMatrix[0], 0, sizeof(m_arfMatrix));
     }
     
+    void Copy(_T* pfArray)
+    {
+        (void)memcpy(pfArray, &m_arfMatrix[0], sizeof(m_arfMatrix));
+    }
+
     void Print()
     {
         for(uint8_t u8I = 0U; u8I < ROWS; u8I++)
         {
             for(uint8_t u8J = 0U; u8J < COLS; u8J++)
             {
-                printf("%f ", m_arfMatrix[(u8I * COLS) + u8J]);
+                printf("%e ", m_arfMatrix[(u8I * COLS) + u8J]);
             }
             printf("\n");
         }
@@ -180,12 +185,12 @@ public:
         return oC;
     }
     
-    _T& operator()(const uint8_t u8I)
+    inline _T& operator()(const uint8_t u8I)
     {
         return m_arfMatrix[u8I];
     }
 
-    _T& operator()(const uint8_t u8I, const uint8_t u8J)
+    inline _T& operator()(const uint8_t u8I, const uint8_t u8J)
     {
         return m_arfMatrix[(u8I * COLS) + u8J];
     }

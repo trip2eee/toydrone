@@ -13,6 +13,11 @@ Quaternion::Quaternion()
 
 }
 
+Quaternion::Quaternion(const float32_t (&arf32Q)[4U])
+{
+    (void)memcpy(&m_arf32Q[0], &arf32Q[0], sizeof(m_arf32Q));
+}
+
 Quaternion::Quaternion(const float32_t f32Q0, const float32_t f32Q1, const float32_t f32Q2, const float32_t f32Q3)
 {
     m_arf32Q[0] = f32Q0;
