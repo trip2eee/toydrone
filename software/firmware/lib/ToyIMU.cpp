@@ -251,6 +251,7 @@ void CToyIMU::GetAngles(float32_t (&arf32Angles)[m_u16NumAxis])
 
 uint8_t CToyIMU::ComputeQuaternion(const float32_t (&arf32A)[3U], const float32_t (&arf32M)[3U], const float32_t (&arf32InitQ)[4U], float32_t (&arf32Q)[4U])
 {
+    const float32_t f32Mu = 1e-4F;
     const uint8_t u8NumConst = 7U;      // The number of constraints.
     const uint8_t u8DimSolution = 4U;   // The dimension of the solution (quaternion)
     const uint16_t u16MaxIter = 20U;    // Maximum number of iteration.
@@ -322,14 +323,12 @@ uint8_t CToyIMU::ComputeQuaternion(const float32_t (&arf32A)[3U], const float32_
 
     // Steepest Descent
     CMatrix<float32_t, u8DimSolution, 1U> oSD;
-    oSD = oJqt * oRes;
-
-    float32_t f32Mu = 1e-4F;
+    oSD = oJqt * oRes;    
     
     // Damping vector.
     CMatrix<float32_t, u8DimSolution, u8DimSolution> oMu;
     oMu.Identity();
-    oMu = oMu * 1e-4F;      // mu * I
+    oMu = oMu * f32Mu;      // mu * I
 
 
     // for each iteration

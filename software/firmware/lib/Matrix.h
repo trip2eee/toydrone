@@ -114,7 +114,7 @@ public:
         {
             for(uint8_t u8J = 0U; u8J < COLS; u8J++)
             {
-                printf("%e ", m_arfMatrix[(u8I * COLS) + u8J]);
+                printf("%f ", m_arfMatrix[(u8I * COLS) + u8J]);
             }
             printf("\n");
         }
@@ -190,7 +190,17 @@ public:
         return m_arfMatrix[u8I];
     }
 
+    inline const _T& operator()(const uint8_t u8I) const
+    {
+        return m_arfMatrix[u8I];
+    }
+
     inline _T& operator()(const uint8_t u8I, const uint8_t u8J)
+    {
+        return m_arfMatrix[(u8I * COLS) + u8J];
+    }
+
+    inline const _T& operator()(const uint8_t u8I, const uint8_t u8J) const
     {
         return m_arfMatrix[(u8I * COLS) + u8J];
     }
@@ -202,7 +212,7 @@ public:
         {
             for(uint8_t u8J = 0U; u8J < COLS; u8J++)
             {
-                oC.m_arfMatrix[(u8J * ROWS) + u8I] = m_arfMatrix[(u8I * COLS) + u8J];
+                oC(u8J, u8I) = m_arfMatrix[(u8I * COLS) + u8J];
             }            
         }
 
@@ -230,7 +240,11 @@ public:
             if(fabsf(arfLU[(u8I * COLS) + u8I]) < FLT_EPSILON)
             {
                 // singular matrix.
-                throw std::out_of_range("The matrix is singular.");                
+#ifdef WIN32
+                throw std::out_of_range("The matrix is singular.");
+#else
+                break;
+#endif
             }
         }
 
@@ -295,14 +309,18 @@ public:
             if(fabsf(arfLU[(u8I * COLS) + u8I]) < FLT_EPSILON)
             {
                 // singular matrix.
-                throw std::out_of_range("The matrix is singular.");                
+#ifdef WIN32
+                throw std::out_of_range("The matrix is singular.");
+#else
+                break;
+#endif
             }
         }
 
         // Compute forward substitution.
         for(uint8_t u8I = 0U; u8I < ROWS; u8I++)
         {
-            arfY[u8I] = oB.m_arfMatrix[aru8P[u8I]];
+            arfY[u8I] = oB(static_cast<const uint8_t>(aru8P[u8I]));
             
             for(uint8_t u8J = 0U; u8J < u8I; u8J++)
             {
@@ -315,12 +333,12 @@ public:
         {
             const uint8_t u8I = static_cast<uint8_t>(s16I);
 
-            oX.m_arfMatrix[u8I] = arfY[u8I];
+            oX(u8I) = arfY[u8I];
             for(uint8_t u8J = (u8I + 1U); u8J < COLS; u8J++)
             {
-                oX.m_arfMatrix[u8I] -= (arfLU[(u8I * COLS) + u8J] * oX.m_arfMatrix[u8J]);
+                oX(u8I) -= (arfLU[(u8I * COLS) + u8J] * oX(u8J));
             }
-            oX.m_arfMatrix[u8I] /= (arfLU[(u8I * COLS) + u8I]);
+            oX(u8I) /= (arfLU[(u8I * COLS) + u8I]);
         }
 
         return oX;
@@ -401,7 +419,7 @@ public:
         // Compute forward substitution.
         for(uint8_t u8I = 0U; u8I < ROWS; u8I++)
         {
-            arfY[u8I] = oB.m_arfMatrix[u8I];
+            arfY[u8I] = oB(u8I);
             
             for(uint8_t u8J = 0U; u8J < u8I; u8J++)
             {
@@ -416,10 +434,10 @@ public:
         {
             const uint8_t u8I = static_cast<uint8_t>(s16I);
 
-            oX.m_arfMatrix[u8I] = arfY[u8I];
+            oX(u8I) = arfY[u8I];
             for(uint8_t u8J = (u8I + 1U); u8J < COLS; u8J++)
             {
-                oX.m_arfMatrix[u8I] -= (arfL[(u8J * COLS) + u8I] * oX.m_arfMatrix[u8J]);
+                oX(u8I) -= (arfL[(u8J * COLS) + u8I] * oX(u8J));
             }
         }
 
@@ -445,9 +463,8 @@ public:
     */
     template <typename _T1, uint8_t ROWS1, uint8_t COLS1, uint8_t ROWS2, uint8_t COLS2>
     friend CMatrix<_T1, ROWS1, COLS2> operator*(CMatrix<_T1, ROWS1, COLS1> oA, CMatrix<_T1, ROWS2, COLS2> oB);
-    
 
-#ifndef _UNIT_TEST
+#ifndef _UNIT_TEST    
 protected:
 #endif
     /**
@@ -484,7 +501,11 @@ protected:
             if(fabsf(fPivot) < FLT_EPSILON)
             {
                 // singular matrix.
-                throw std::out_of_range("The matrix is singular.");                
+#ifdef WIN32
+                throw std::out_of_range("The matrix is singular.");
+#else
+                break;
+#endif
             }
 
             // Pivoting.
@@ -533,7 +554,11 @@ protected:
             if(fabsf(arfD[u8J]) < FLT_EPSILON)
             {
                 // singular matrix.
-                throw std::out_of_range("The matrix is singular.");                
+#ifdef WIN32
+                throw std::out_of_range("The matrix is singular.");
+#else
+                break;
+#endif
             }
 
             for(uint8_t u8I = u8J; u8I < ROWS; u8I++)
@@ -547,7 +572,9 @@ protected:
             }
         }
     }
+
     _T m_arfMatrix[ROWS * COLS];
+    uint8_t u8Valid;
 };
 
 template <typename _T1, uint8_t ROWS1, uint8_t COLS1>
@@ -584,7 +611,6 @@ CMatrix<_T1, ROWS1, COLS2> operator*(CMatrix<_T1, ROWS1, COLS1> oA, CMatrix<_T1,
 }
 
 #endif
-
 
 
 

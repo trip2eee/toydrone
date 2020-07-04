@@ -18,7 +18,7 @@ TEST(CMatrixTest, SetArray)
 
     for(uint8_t u8I = 0U; u8I < (oA.GetRows() * oA.GetCols()); u8I++)
     {
-        EXPECT_FLOAT_EQ(oA.m_arfMatrix[u8I], arf32A[u8I]);
+        EXPECT_FLOAT_EQ(oA(u8I), arf32A[u8I]);
     }
 }
 
@@ -33,7 +33,7 @@ TEST(CMatrixTest, SetDiagonal)
 
     for(uint8_t u8I = 0U; u8I < (oA.GetRows() * oA.GetCols()); u8I++)
     {
-        EXPECT_FLOAT_EQ(oA.m_arfMatrix[u8I], arf32A[u8I]);
+        EXPECT_FLOAT_EQ(oA(u8I), arf32A[u8I]);
     }
 
 }
@@ -46,7 +46,7 @@ TEST(CMatrixTest, SetValues)
 
     for(uint8_t u8I = 0U; u8I < (oA.GetRows() * oA.GetCols()); u8I++)
     {
-        EXPECT_FLOAT_EQ(oA.m_arfMatrix[u8I], 0.0F);
+        EXPECT_FLOAT_EQ(oA(u8I), 0.0F);
     }
 
     oA.Identity();
@@ -56,11 +56,11 @@ TEST(CMatrixTest, SetValues)
         {
             if(u8I == u8J)
             {
-                EXPECT_FLOAT_EQ(oA.m_arfMatrix[(u8I * oA.GetCols()) + u8J], 1.0F);
+                EXPECT_FLOAT_EQ(oA(u8I, u8J), 1.0F);
             }
             else
             {
-                EXPECT_FLOAT_EQ(oA.m_arfMatrix[(u8I * oA.GetCols()) + u8J], 0.0F);
+                EXPECT_FLOAT_EQ(oA(u8I, u8J), 0.0F);
             }
         }
     }
@@ -81,8 +81,8 @@ TEST(CMatrixTest, operator_plus_minus)
 
     for(uint8_t u8I = 0U; u8I < (oC.GetCols()*oC.GetCols()); u8I++)
     {
-        EXPECT_FLOAT_EQ(oC.m_arfMatrix[u8I], arf32A[u8I] + arf32A[u8I] + arf32B[u8I]);
-        EXPECT_FLOAT_EQ(oD.m_arfMatrix[u8I], arf32A[u8I] - arf32B[u8I]);
+        EXPECT_FLOAT_EQ(oC(u8I), arf32A[u8I] + arf32A[u8I] + arf32B[u8I]);
+        EXPECT_FLOAT_EQ(oD(u8I), arf32A[u8I] - arf32B[u8I]);
     }
 }
 
@@ -99,13 +99,13 @@ TEST(CMatrixTest, operator_mul_scalar)
     oC = oA * f32S;
     for(uint8_t u8I = 0U; u8I < (oC.GetRows() * oC.GetCols()); u8I++)
     {
-        EXPECT_FLOAT_EQ(oC.m_arfMatrix[u8I], arf32A[u8I] * f32S);
+        EXPECT_FLOAT_EQ(oC(u8I), arf32A[u8I] * f32S);
     }
 
     oC = f32S * oA;
     for(uint8_t u8I = 0U; u8I < (oC.GetRows() * oC.GetCols()); u8I++)
     {
-        EXPECT_FLOAT_EQ(oC.m_arfMatrix[u8I], arf32A[u8I] * f32S);
+        EXPECT_FLOAT_EQ(oC(u8I), arf32A[u8I] * f32S);
     }
 }
 
@@ -123,7 +123,7 @@ TEST(CMatrixTest, operator_mul)
     
     for(uint8_t u8I = 0U; u8I < (oC.GetRows() * oC.GetCols()); u8I++)
     {
-        EXPECT_FLOAT_EQ(oC.m_arfMatrix[u8I], arf32C[u8I]);
+        EXPECT_FLOAT_EQ(oC(u8I), arf32C[u8I]);
     }
 }
 
@@ -134,8 +134,8 @@ TEST(CMatrixTest, operator_paren)
     oA(0U) = 10.0F;
     oA(1U, 1U) = 20.0F;
 
-    EXPECT_FLOAT_EQ(oA.m_arfMatrix[0], 10.0F);
-    EXPECT_FLOAT_EQ(oA.m_arfMatrix[(1U * oA.GetCols()) + 1U], 20.0F);
+    EXPECT_FLOAT_EQ(oA(0), 10.0F);
+    EXPECT_FLOAT_EQ(oA(1U, 1U), 20.0F);
 
     EXPECT_FLOAT_EQ(oA(0U), 10.0F);
     EXPECT_FLOAT_EQ(oA(1U, 1U), 20.0F);
@@ -155,7 +155,7 @@ TEST(CMatrixTest, transpose)
     {
         for(uint8_t u8J = 0U; u8J < oB.GetCols(); u8J++)
         {
-            EXPECT_FLOAT_EQ(oB.m_arfMatrix[(u8I * oB.GetCols()) + u8J], oA.m_arfMatrix[(u8J * oA.GetCols()) + u8I]);
+            EXPECT_FLOAT_EQ(oB(u8I, u8J), oA(u8J, u8I));
         }        
     }
 }
@@ -221,8 +221,8 @@ TEST(CMatrixTest, solve)
 
     for(uint8_t u8I = 0U; u8I < oX.GetRows(); u8I++)
     {
-        EXPECT_NEAR(oX.m_arfMatrix[u8I], arf32X_exp[u8I], 1e-5F);
-        EXPECT_FLOAT_EQ(oC.m_arfMatrix[u8I], arf32B[u8I]);
+        EXPECT_NEAR(oX(u8I), arf32X_exp[u8I], 1e-5F);
+        EXPECT_FLOAT_EQ(oC(u8I), arf32B[u8I]);
     }
 }
 

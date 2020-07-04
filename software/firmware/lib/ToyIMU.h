@@ -8,6 +8,9 @@
 #include "typedef.h"
 #include "Matrix.h"
 
+#define DEG2RAD(x) ((x) * 3.141592F / 180.0F)
+#define RAD2DEG(x) ((x) * 180.0F / 3.141592F)
+
 class CToyIMU
 {
 public:
