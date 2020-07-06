@@ -216,7 +216,9 @@ TEST(CMatrixTest, solve)
     {
         std::cerr << e.what() << '\n';
     }
-        
+    
+    EXPECT_EQ(oX.IsValid(), 1U);
+
     oC = oA * oX;
 
     for(uint8_t u8I = 0U; u8I < oX.GetRows(); u8I++)
@@ -224,6 +226,28 @@ TEST(CMatrixTest, solve)
         EXPECT_NEAR(oX(u8I), arf32X_exp[u8I], 1e-5F);
         EXPECT_FLOAT_EQ(oC(u8I), arf32B[u8I]);
     }
+}
+
+TEST(CMatrixTest, solve_singular)
+{
+    const float32_t arf32A[] = {1.0F, 2.0F, 1.0F, 2.0F};
+    const float32_t arf32B[] = {1.0F, 2.0F};
+    const float32_t arf32X_exp[] = {0.42857F, 0.28571F};
+
+    CMatrix<float32_t, 2, 2> oA(arf32A);
+    CMatrix<float32_t, 2, 1> oB(arf32B);
+    CMatrix<float32_t, 2, 1> oX;
+
+    try
+    {
+        oX = oA.Solve(oB);
+    }
+    catch(const std::exception& e)
+    {
+        std::cerr << e.what() << '\n';
+    }
+        
+    EXPECT_EQ(oX.IsValid(), 0U);
 }
 
 
@@ -245,6 +269,8 @@ TEST(CMatrixTest, inverse)
         std::cerr << e.what() << '\n';
     }
 
+    EXPECT_EQ(oB.IsValid(), 1U);
+
     oI = oA * oB;
 
     for(uint8_t u8I = 0U; u8I < oI.GetRows(); u8I++)
@@ -262,6 +288,28 @@ TEST(CMatrixTest, inverse)
                     
         }
     }
+}
+
+
+TEST(CMatrixTest, inverse_singular)
+{
+    const float32_t arf32A[] = { 1.0F,  2.0F,  4.0F, 
+                                 1.0F,  2.0F,  4.0F,
+                                -1.0F, 10.0F,  3.0F};
+    CMatrix<float32_t, 3, 3> oA(arf32A);
+    CMatrix<float32_t, 3, 3> oB;
+    CMatrix<float32_t, 3, 3> oI;
+
+    try
+    {
+        oB = oA.Invert();
+    }
+    catch(const std::exception& e)
+    {
+        std::cerr << e.what() << '\n';
+    }
+
+    EXPECT_EQ(oB.IsValid(), 0U);
 }
 
 TEST(CMatrixTest, solveSymmetric)
@@ -284,13 +332,40 @@ TEST(CMatrixTest, solveSymmetric)
     {
         std::cerr << e.what() << '\n';
     }    
+    EXPECT_EQ(oX.IsValid(), 1U);
 
-    // oC = oA * oX;
+    oC = oA * oX;
 
-    // for(uint8_t u8I = 0U; u8I < oC.GetRows(); u8I++)
-    // {
-    //     EXPECT_NEAR(oC(u8I), arf32B[u8I], 1e-5F);
-    // }
+    for(uint8_t u8I = 0U; u8I < oC.GetRows(); u8I++)
+    {
+        EXPECT_NEAR(oC(u8I), arf32B[u8I], 1e-5F);
+    }
+
+}
+
+
+TEST(CMatrixTest, solveSymmetric_singular)
+{
+    const float32_t arf32A[] = { 0.0F, 0.0F, 
+                                 0.0F, 10.0F};
+    const float32_t arf32B[] = {1.0F, 
+                                2.0F};
+
+    CMatrix<float32_t, 2U, 2U> oA(arf32A);
+    CMatrix<float32_t, 2U, 1U> oB(arf32B);
+    CMatrix<float32_t, 2U, 1U> oC(arf32B);
+    CMatrix<float32_t, 2U, 1U> oX;
+
+    try
+    {
+        oX = oA.SolveSymmetric(oB);
+    }
+    catch(const std::exception& e)
+    {
+        std::cerr << e.what() << '\n';
+    }    
+
+    EXPECT_EQ(oX.IsValid(), 0U);
 
 }
 
@@ -318,6 +393,8 @@ TEST(CMatrixTest, invertSymmetric)
         std::cerr << e.what() << '\n';
     }
     
+    EXPECT_EQ(oB.IsValid(), 1U);
+
     oA.SetArray(arf32A);
 
     oI = oA * oB;
@@ -336,6 +413,31 @@ TEST(CMatrixTest, invertSymmetric)
             }
                     
         }
-    }   
+    }
+
+}
+
+
+TEST(CMatrixTest, invertSymmetric_singular)
+{
+    // Lower triangular matrix.
+    const float32_t arf32L[] = { 0.0F, 0.0F, 20.0F,
+                                 0.0F, 0.0F,  0.0F,
+                                20.0f, 0.0F,  1.0F};                   
+
+    CMatrix<float32_t, 3U, 3U> oA(arf32L);
+    CMatrix<float32_t, 3U, 3U> oB;
+    CMatrix<float32_t, 3U, 3U> oI;
+
+    try
+    {
+        oB = oA.InvertSymmetric();
+    }
+    catch(const std::exception& e)
+    {
+        std::cerr << e.what() << '\n';
+    }
+    
+    EXPECT_EQ(oB.IsValid(), 0U);
 
 }
