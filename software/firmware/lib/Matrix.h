@@ -1,8 +1,24 @@
 /**
- * @file   Matrix.h
- * @author trip2eee@gmail.com
- * @date   20 June 2020
- * @brief  Matrix class library.
+   @file   Matrix.h
+   @brief  Matrix class library.
+   @date   05 July 2020
+   @author Jongmin park (trip2eee@gmail.com)
+   @remark  Copyright (C) 2020, Jongmin Park (trip2eee@gmail.com)
+            Alternatively, the contents of this file may be used under the terms 
+            of the GNU General Public License Version 3.0 as described below:
+
+            This program is free software: you can redistribute it and/or modify
+            it under the terms of the GNU General Public License as published by
+            the Free Software Foundation, either version 3 of the License, or
+            (at your option) any later version.
+
+            This program is distributed in the hope that it will be useful,
+            but WITHOUT ANY WARRANTY; without even the implied warranty of
+            MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+            GNU General Public License for more details.
+
+            You should have received a copy of the GNU General Public License
+            along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
 #ifndef __MATRIX_H__
@@ -13,28 +29,30 @@
 #include <string.h>
 #include <cfloat>
 #include <cmath>
-#include <stdexcept>
 
 template <typename _T, uint8_t ROWS, uint8_t COLS>
 class CMatrix
 {
 public:
-    CMatrix()
-    {
-
+    CMatrix():
+        m_u8Valid(1U)
+    {        
     }
 
-    CMatrix(const CMatrix<_T, ROWS, COLS>& other)
-    {
-        (void)memcpy(&m_arfMatrix[0], &other.m_arfMatrix[0], sizeof(m_arfMatrix));
-    }
-
-    CMatrix(const CMatrix<_T, ROWS, COLS>&& other)
+    CMatrix(const CMatrix<_T, ROWS, COLS>& other):
+        m_u8Valid(1U)
     {
         (void)memcpy(&m_arfMatrix[0], &other.m_arfMatrix[0], sizeof(m_arfMatrix));
     }
 
-    CMatrix(const _T (&arfArray)[ROWS * COLS])
+    CMatrix(const CMatrix<_T, ROWS, COLS>&& other):
+        m_u8Valid(1U)
+    {
+        (void)memcpy(&m_arfMatrix[0], &other.m_arfMatrix[0], sizeof(m_arfMatrix));
+    }
+
+    CMatrix(const _T (&arfArray)[ROWS * COLS]):
+        m_u8Valid(1U)
     {
         SetArray(arfArray);
     }
@@ -47,6 +65,35 @@ public:
     uint8_t GetCols()
     {
         return COLS;
+    }
+
+    /**
+     * @fn    uint8_t IsValid()
+     * @brief This method returns validity flag. The validity flag is 1U by default.
+     *        Validity flag is cleared in the result of inverse or solve operations performed on a singular matrix.
+     * @return Validity flag.
+    */
+    uint8_t IsValid()
+    {
+        return m_u8Valid;
+    }
+
+    /**
+     * @fn    void Validate()
+     * @brief This method sets valid flag to be 1.
+    */
+    void SetValid()
+    {
+        m_u8Valid = 1U;
+    }
+
+    /**
+     * @fn    void Invalidate()
+     * @brief This method sets valid flag to be 0 (invalid).
+    */
+    void Invalidate()
+    {
+        m_u8Valid = 0U;
     }
 
     /**
@@ -123,6 +170,7 @@ public:
     CMatrix<_T, ROWS, COLS> operator=(const CMatrix<_T, ROWS, COLS>& oA)
     {
         (void)memcpy(&m_arfMatrix[0], &oA.m_arfMatrix[0], sizeof(m_arfMatrix));
+        m_u8Valid = oA.m_u8Valid;
 
         return *this;
     }
@@ -130,6 +178,7 @@ public:
     CMatrix<_T, ROWS, COLS> operator=(const CMatrix<_T, ROWS, COLS>&& other)
     {
         (void)memcpy(&m_arfMatrix[0], &other.m_arfMatrix[0], sizeof(m_arfMatrix));
+        m_u8Valid = other.m_u8Valid;
 
         return *this;
     }
@@ -232,56 +281,62 @@ public:
         _T arfLU[ROWS * COLS];
         _T arfY[ROWS];
 
-        DecomposeLUP(aru8P, arfLU);
-
-        // Test for singularity.
-        for(uint8_t u8I = 0U; u8I < ROWS; u8I++)
+        if(DecomposeLUP(aru8P, arfLU))
         {
-            if(fabsf(arfLU[(u8I * COLS) + u8I]) < FLT_EPSILON)
-            {
-                // singular matrix.
-#ifdef WIN32
-                throw std::out_of_range("The matrix is singular.");
-#else
-                break;
-#endif
-            }
-        }
-
-        // for each column of identity matrix.
-        for(uint8_t u8C = 0U; u8C < COLS; u8C++)
-        {
-            // Compute forward substitution.
+            // Test for singularity.
             for(uint8_t u8I = 0U; u8I < ROWS; u8I++)
             {
-                // Determine values of the c-th column vector of identity matrix.
-                if(u8C == aru8P[u8I])
+                if(fabsf(arfLU[(u8I * COLS) + u8I]) < FLT_EPSILON)
                 {
-                    arfY[u8I] = 1.0F;
-                }
-                else
-                {
-                    arfY[u8I] = 0.0F;
-                }
-
-                for(uint8_t u8J = 0U; u8J < u8I; u8J++)
-                {
-                    arfY[u8I] -= (arfLU[(u8I * COLS) + u8J] * arfY[u8J]);
+                    // singular matrix.
+                    oB.Invalidate();
+                    break;
                 }
             }
 
-            // Compute backward substitution.
-            for(int16_t s16I = (static_cast<int16_t>(ROWS)-1); s16I >= 0; s16I--)
+            if(oB.IsValid())
             {
-                const uint8_t u8I = static_cast<uint8_t>(s16I);
-
-                oB.m_arfMatrix[(u8I * COLS) + u8C] = arfY[u8I];
-                for(uint8_t u8J = (u8I + 1U); u8J < COLS; u8J++)
+                // for each column of identity matrix.
+                for(uint8_t u8C = 0U; u8C < COLS; u8C++)
                 {
-                    oB.m_arfMatrix[(u8I * COLS) + u8C] -= (arfLU[(u8I * COLS) + u8J] * oB.m_arfMatrix[(u8J * COLS) + u8C]);
+                    // Compute forward substitution.
+                    for(uint8_t u8I = 0U; u8I < ROWS; u8I++)
+                    {
+                        // Determine values of the c-th column vector of identity matrix.
+                        if(u8C == aru8P[u8I])
+                        {
+                            arfY[u8I] = 1.0F;
+                        }
+                        else
+                        {
+                            arfY[u8I] = 0.0F;
+                        }
+
+                        for(uint8_t u8J = 0U; u8J < u8I; u8J++)
+                        {
+                            arfY[u8I] -= (arfLU[(u8I * COLS) + u8J] * arfY[u8J]);
+                        }
+                    }
+
+                    // Compute backward substitution.
+                    for(int16_t s16I = (static_cast<int16_t>(ROWS)-1); s16I >= 0; s16I--)
+                    {
+                        const uint8_t u8I = static_cast<uint8_t>(s16I);
+
+                        oB.m_arfMatrix[(u8I * COLS) + u8C] = arfY[u8I];
+                        for(uint8_t u8J = (u8I + 1U); u8J < COLS; u8J++)
+                        {
+                            oB.m_arfMatrix[(u8I * COLS) + u8C] -= (arfLU[(u8I * COLS) + u8J] * oB.m_arfMatrix[(u8J * COLS) + u8C]);
+                        }
+                        oB.m_arfMatrix[(u8I * COLS) + u8C] /= (arfLU[(u8I * COLS) + u8I]);
+                    }
                 }
-                oB.m_arfMatrix[(u8I * COLS) + u8C] /= (arfLU[(u8I * COLS) + u8I]);
             }
+        }
+        // If the matrix is singular.
+        else
+        {
+            oB.Invalidate();
         }
 
         return oB;
@@ -301,44 +356,51 @@ public:
         _T arfLU[ROWS * COLS];
         _T arfY[ROWS];
 
-        DecomposeLUP(aru8P, arfLU);
-
-        // Test for singularity.
-        for(uint8_t u8I = 0U; u8I < ROWS; u8I++)
+        if(DecomposeLUP(aru8P, arfLU))
         {
-            if(fabsf(arfLU[(u8I * COLS) + u8I]) < FLT_EPSILON)
+            // Test for singularity.
+            for(uint8_t u8I = 0U; u8I < ROWS; u8I++)
             {
-                // singular matrix.
-#ifdef WIN32
-                throw std::out_of_range("The matrix is singular.");
-#else
-                break;
-#endif
+                if(fabsf(arfLU[(u8I * COLS) + u8I]) < FLT_EPSILON)
+                {
+                    // singular matrix.
+                    oX.Invalidate();
+                    break;
+                }
+            }
+
+            if(oX.IsValid())
+            {
+                // Compute forward substitution.
+                for(uint8_t u8I = 0U; u8I < ROWS; u8I++)
+                {
+                    arfY[u8I] = oB(static_cast<const uint8_t>(aru8P[u8I]));
+                    
+                    for(uint8_t u8J = 0U; u8J < u8I; u8J++)
+                    {
+                        arfY[u8I] -= (arfLU[(u8I * COLS) + u8J] * arfY[u8J]);
+                    }
+                }
+
+                // Compute backward substitution.
+                for(int16_t s16I = (static_cast<int16_t>(ROWS)-1); s16I >= 0; s16I--)
+                {
+                    const uint8_t u8I = static_cast<uint8_t>(s16I);
+
+                    oX(u8I) = arfY[u8I];
+                    for(uint8_t u8J = (u8I + 1U); u8J < COLS; u8J++)
+                    {
+                        oX(u8I) -= (arfLU[(u8I * COLS) + u8J] * oX(u8J));
+                    }
+                    oX(u8I) /= (arfLU[(u8I * COLS) + u8I]);
+                }
+
             }
         }
-
-        // Compute forward substitution.
-        for(uint8_t u8I = 0U; u8I < ROWS; u8I++)
+        // If the matrix is singular.
+        else
         {
-            arfY[u8I] = oB(static_cast<const uint8_t>(aru8P[u8I]));
-            
-            for(uint8_t u8J = 0U; u8J < u8I; u8J++)
-            {
-                arfY[u8I] -= (arfLU[(u8I * COLS) + u8J] * arfY[u8J]);
-            }
-        }
-
-        // Compute backward substitution.
-        for(int16_t s16I = (static_cast<int16_t>(ROWS)-1); s16I >= 0; s16I--)
-        {
-            const uint8_t u8I = static_cast<uint8_t>(s16I);
-
-            oX(u8I) = arfY[u8I];
-            for(uint8_t u8J = (u8I + 1U); u8J < COLS; u8J++)
-            {
-                oX(u8I) -= (arfLU[(u8I * COLS) + u8J] * oX(u8J));
-            }
-            oX(u8I) /= (arfLU[(u8I * COLS) + u8I]);
+            oX.Invalidate();
         }
 
         return oX;
@@ -358,42 +420,48 @@ public:
         _T arfD[ROWS];
         _T arfY[ROWS];
         
-        DecomposeLDL(arfL, arfD);
-        
-        // for each column of identity matrix.
-        for(uint8_t u8C = 0U; u8C < COLS; u8C++)
+        if(DecomposeLDL(arfL, arfD))
         {
-            // Compute forward substitution.
-            for(uint8_t u8I = 0U; u8I < ROWS; u8I++)
+            // for each column of identity matrix.
+            for(uint8_t u8C = 0U; u8C < COLS; u8C++)
             {
-                if(u8C == u8I)
+                // Compute forward substitution.
+                for(uint8_t u8I = 0U; u8I < ROWS; u8I++)
                 {
-                    arfY[u8I] = 1.0F;
-                }
-                else
-                {
-                    arfY[u8I] = 0.0F;
-                }                
-                
-                for(uint8_t u8J = 0U; u8J < u8I; u8J++)
-                {
-                    arfY[u8I] -= (arfD[u8J] * arfL[(u8I * COLS) + u8J]) * arfY[u8J];
+                    if(u8C == u8I)
+                    {
+                        arfY[u8I] = 1.0F;
+                    }
+                    else
+                    {
+                        arfY[u8I] = 0.0F;
+                    }                
+                    
+                    for(uint8_t u8J = 0U; u8J < u8I; u8J++)
+                    {
+                        arfY[u8I] -= (arfD[u8J] * arfL[(u8I * COLS) + u8J]) * arfY[u8J];
+                    }
+
+                    arfY[u8I] /= arfD[u8I];
                 }
 
-                arfY[u8I] /= arfD[u8I];
+                // Compute backward substitution.
+                for(int16_t s16I = (static_cast<int16_t>(ROWS)-1); s16I >= 0; s16I--)
+                {
+                    const uint8_t u8I = static_cast<uint8_t>(s16I);
+
+                    oB.m_arfMatrix[(u8I * COLS) + u8C] = arfY[u8I];
+                    for(uint8_t u8J = (u8I + 1U); u8J < COLS; u8J++)
+                    {
+                        oB.m_arfMatrix[(u8I * COLS) + u8C] -= (arfL[(u8J * COLS) + u8I] * oB.m_arfMatrix[(u8J * COLS) + u8C]);
+                    }
+                }
             }
-
-            // Compute backward substitution.
-            for(int16_t s16I = (static_cast<int16_t>(ROWS)-1); s16I >= 0; s16I--)
-            {
-                const uint8_t u8I = static_cast<uint8_t>(s16I);
-
-                oB.m_arfMatrix[(u8I * COLS) + u8C] = arfY[u8I];
-                for(uint8_t u8J = (u8I + 1U); u8J < COLS; u8J++)
-                {
-                    oB.m_arfMatrix[(u8I * COLS) + u8C] -= (arfL[(u8J * COLS) + u8I] * oB.m_arfMatrix[(u8J * COLS) + u8C]);
-                }
-            }
+        }
+        // If the matrix is singular.
+        else
+        {
+            oB.Invalidate();
         }
 
         return oB;
@@ -414,31 +482,37 @@ public:
         _T arfD[ROWS];
         _T arfY[ROWS];
         
-        DecomposeLDL(arfL, arfD);
-        
-        // Compute forward substitution.
-        for(uint8_t u8I = 0U; u8I < ROWS; u8I++)
+        if(DecomposeLDL(arfL, arfD))
         {
-            arfY[u8I] = oB(u8I);
-            
-            for(uint8_t u8J = 0U; u8J < u8I; u8J++)
+            // Compute forward substitution.
+            for(uint8_t u8I = 0U; u8I < ROWS; u8I++)
             {
-                arfY[u8I] -= (arfD[u8J] * arfL[(u8I * COLS) + u8J]) * arfY[u8J];
+                arfY[u8I] = oB(u8I);
+                
+                for(uint8_t u8J = 0U; u8J < u8I; u8J++)
+                {
+                    arfY[u8I] -= (arfD[u8J] * arfL[(u8I * COLS) + u8J]) * arfY[u8J];
+                }
+
+                arfY[u8I] /= arfD[u8I];
             }
 
-            arfY[u8I] /= arfD[u8I];
+            // Compute backward substitution.
+            for(int16_t s16I = (static_cast<int16_t>(ROWS)-1); s16I >= 0; s16I--)
+            {
+                const uint8_t u8I = static_cast<uint8_t>(s16I);
+
+                oX(u8I) = arfY[u8I];
+                for(uint8_t u8J = (u8I + 1U); u8J < COLS; u8J++)
+                {
+                    oX(u8I) -= (arfL[(u8J * COLS) + u8I] * oX(u8J));
+                }
+            }
         }
-
-        // Compute backward substitution.
-        for(int16_t s16I = (static_cast<int16_t>(ROWS)-1); s16I >= 0; s16I--)
+        // If the matrix is singular.
+        else
         {
-            const uint8_t u8I = static_cast<uint8_t>(s16I);
-
-            oX(u8I) = arfY[u8I];
-            for(uint8_t u8J = (u8I + 1U); u8J < COLS; u8J++)
-            {
-                oX(u8I) -= (arfL[(u8J * COLS) + u8I] * oX(u8J));
-            }
+            oX.Invalidate();
         }
 
         return oX;
@@ -468,13 +542,16 @@ public:
 protected:
 #endif
     /**
-     * @fn  void DecomposeLUP(_T (&arfL)[ROWS * COLS], _T (&arfD)[ROWS])
+     * @fn  uint8_t DecomposeLUP(_T (&arfL)[ROWS * COLS], _T (&arfD)[ROWS])
      * @brief This method decomposes matrix into PA = LU
      * @param aru8P Permutation
      * @param arfLU Decomposed matrix. Lower triangular part: L, Upper triangular part: P.
+     * @return This method returns 1U if succeeded. Otherwise, 0U is returned.
     */
-    void DecomposeLUP(uint8_t (&aru8P)[ROWS], _T (&arfLU)[ROWS * COLS])
+    uint8_t DecomposeLUP(uint8_t (&aru8P)[ROWS], _T (&arfLU)[ROWS * COLS])
     {
+        uint8_t u8Success = 1U;
+
         (void)memcpy(arfLU, m_arfMatrix, sizeof(m_arfMatrix));
 
         for(uint8_t u8I = 0U; u8I < ROWS; u8I++)
@@ -501,11 +578,8 @@ protected:
             if(fabsf(fPivot) < FLT_EPSILON)
             {
                 // singular matrix.
-#ifdef WIN32
-                throw std::out_of_range("The matrix is singular.");
-#else
+                u8Success = 0U;
                 break;
-#endif
             }
 
             // Pivoting.
@@ -531,16 +605,21 @@ protected:
                 }
             }
         }
+
+        return u8Success;
     }
     
     /**
-     * @fn  void DecomposeLDL(_T (&arfL)[ROWS * COLS], _T (&arfD)[ROWS])
+     * @fn  uint8_t DecomposeLDL(_T (&arfL)[ROWS * COLS], _T (&arfD)[ROWS])
      * @brief This method decomposes matrix into LDL^T (Cholesky decomposition).
      * @param arfL Lower triangular matrix.
      * @param arfD Diagonal matrix.
+     * @return This method returns 1U if succeeded. Otherwise, 0U is returned.
     */
-    void DecomposeLDL(_T (&arfL)[ROWS * COLS], _T (&arfD)[ROWS])
-    {   
+    uint8_t DecomposeLDL(_T (&arfL)[ROWS * COLS], _T (&arfD)[ROWS])
+    { 
+        uint8_t u8Success = 1U;
+
         (void)memset(&arfL[0], 0, sizeof(arfL));
 
         for(uint8_t u8J = 0U; u8J < COLS; u8J++)
@@ -554,11 +633,8 @@ protected:
             if(fabsf(arfD[u8J]) < FLT_EPSILON)
             {
                 // singular matrix.
-#ifdef WIN32
-                throw std::out_of_range("The matrix is singular.");
-#else
+                u8Success = 0U;
                 break;
-#endif
             }
 
             for(uint8_t u8I = u8J; u8I < ROWS; u8I++)
@@ -571,10 +647,12 @@ protected:
                 arfL[(u8I * COLS) + u8J] /= arfD[u8J];
             }
         }
+
+        return u8Success;
     }
 
     _T m_arfMatrix[ROWS * COLS];
-    uint8_t u8Valid;
+    uint8_t m_u8Valid;
 };
 
 template <typename _T1, uint8_t ROWS1, uint8_t COLS1>
