@@ -36,12 +36,12 @@ TEST(ToyIMUTest, ComputeQ)
 TEST(ToyIMUTest, Initialize)
 {
     CToyIMU oIMU;
-
-    const float32_t f32SigmaW = 1.0F * 3.14F / 180.0F;
-    const float32_t f32SigmaBW = 1.0F * 3.14F / 180.0F;
+    
+    const float32_t f32SigmaQ = 0.1F;
+    const float32_t f32SigmaBW = 0.01F;
 
     const float32_t arf32X[] = {1.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F};
-    const float32_t arf32Std[] = {1.0F, 1.0F, 1.0F, 1.0F, 
+    const float32_t arf32Std[] = {f32SigmaQ, f32SigmaQ, f32SigmaQ, f32SigmaQ,
                                 f32SigmaBW, f32SigmaBW, f32SigmaBW};
 
     oIMU.Initialize();
@@ -83,8 +83,7 @@ TEST(ToyIMUTest, Update)
 
     ASSERT_NE(reinterpret_cast<int>(pstFileInput), NULL) << "Failed to open test sequence data." << std::endl;
 
-    while(t < 583)
-    // while(t < 2)
+    while(1)
     {
         printf("iteration: %d\n", t);
 
@@ -96,10 +95,15 @@ TEST(ToyIMUTest, Update)
         float32_t arf32X_expected[7U];
         float32_t arf32P_expected[49U];
 
+        int32_t s32Ret = 0U;
         // read aceelerometer
         for(uint16_t u16I = 0U; u16I < 3U; u16I++)
         {
-            fscanf(pstFileInput, "%f ", &arf32A[u16I]);
+            s32Ret = fscanf(pstFileInput, "%f ", &arf32A[u16I]);
+        }
+        if(s32Ret == 0 || s32Ret == EOF)
+        {
+            break;
         }
 
         // read gyroscope
@@ -137,12 +141,11 @@ TEST(ToyIMUTest, Update)
 #if 0
         for(uint16_t u16I = 0U; u16I < 7U; u16I++)
         {
-            EXPECT_NEAR(oIMU.m_oX(u16I), arf32X_expected[u16I], 1e-3F);
-            //ASSERT_NEAR(oIMU.m_oX(u16I), arf32X_expected[u16I], 1e-2F);
-#if 0
+            EXPECT_NEAR(oIMU.m_oX(u16I), arf32X_expected[u16I], 1e-1F);
+#if 1
             for(uint16_t u16J = 0U; u16J < 7U; u16J++)
             {
-                EXPECT_NEAR(oIMU.m_oP(u16I, u16J), arf32P_expected[(u16I * 7U) + u16J], 1e-2F);
+                EXPECT_NEAR(oIMU.m_oP(u16I, u16J), arf32P_expected[(u16I * 7U) + u16J], 1e-1F);
             }
 #endif
         }                        

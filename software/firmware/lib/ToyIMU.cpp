@@ -1,9 +1,25 @@
 /**
- * @file   ToyIMU.cpp
- * @author trip2eee@gmail.com
- * @date   20 June 2020
- * @brief  CToyIMU class library.
- *         This class estimates orientation using 9-axis IMU sensor in Arduino nano 33 BLE.
+  @file   ToyIMU.cpp   
+  @date   20 June 2020
+  @brief  CToyIMU class library.
+          This class estimates orientation using 9-axis IMU sensor in Arduino nano 33 BLE.
+  @author Jongmin park (trip2eee@gmail.com)
+  @remark Copyright (C) 2020, Jongmin Park (trip2eee@gmail.com)
+          Alternatively, the contents of this file may be used under the terms 
+          of the GNU General Public License Version 3.0 as described below:
+
+          This program is free software: you can redistribute it and/or modify
+          it under the terms of the GNU General Public License as published by
+          the Free Software Foundation, either version 3 of the License, or
+          (at your option) any later version.
+
+          This program is distributed in the hope that it will be useful,
+          but WITHOUT ANY WARRANTY; without even the implied warranty of
+          MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+          GNU General Public License for more details.
+
+          You should have received a copy of the GNU General Public License
+          along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
 #include "ToyIMU.h"
@@ -75,11 +91,13 @@ uint8_t CToyIMU::Initialize()
     m_oP(5,5) = (f32SigmaBW * f32SigmaBW);
     m_oP(6,6) = (f32SigmaBW * f32SigmaBW);
 
+    (void)memset(&m_arf32Angles[0], 0, sizeof(m_arf32Angles));
+
     return 0U;
 }
 
 
-uint8_t CToyIMU::Update(const float32_t (&arf32A)[3U], const float32_t (&arf32W)[3U], const float32_t (&arf32M)[m_u16NumAxis], const float32_t f32T)
+uint8_t CToyIMU::Update(const float32_t (&arf32A)[eNUM_AXIS], const float32_t (&arf32W)[eNUM_AXIS], const float32_t (&arf32M)[eNUM_AXIS], const float32_t f32T)
 {
     // Predict
     PredictKalman(arf32W, f32T);
@@ -87,10 +105,14 @@ uint8_t CToyIMU::Update(const float32_t (&arf32A)[3U], const float32_t (&arf32W)
     // Update
     UpdateKalman(arf32A, arf32M);
     
+    // Update angles.    
+    Quaternion oQ(m_oX(eSTATE_Q0), m_oX(eSTATE_Q1), m_oX(eSTATE_Q2), m_oX(eSTATE_Q3));
+    oQ.ConvertToAngles(m_arf32Angles);
+
     return 0U;
 }
 
-void CToyIMU::PredictKalman(const float32_t (&arf32W)[3U], const float32_t f32T)
+void CToyIMU::PredictKalman(const float32_t (&arf32W)[eNUM_AXIS], const float32_t f32T)
 {
     const float32_t f32w0 = arf32W[0];
     const float32_t f32w1 = arf32W[1];
@@ -169,10 +191,10 @@ void CToyIMU::PredictKalman(const float32_t (&arf32W)[3U], const float32_t f32T)
     m_oPp = (m_oF*m_oP*m_oF.Transpose()) + m_oQf + (m_oG*m_oQe*m_oG.Transpose());
 }
 
-void CToyIMU::UpdateKalman(const float32_t (&arf32A)[3U], const float32_t (&arf32M)[m_u16NumAxis])
+void CToyIMU::UpdateKalman(const float32_t (&arf32A)[eNUM_AXIS], const float32_t (&arf32M)[eNUM_AXIS])
 {
     float32_t arf32Q[4U];
-#if 0
+#if 1
     arf32Q[0] = m_oXp(0);
     arf32Q[1] = m_oXp(1);
     arf32Q[2] = m_oXp(2);
@@ -184,7 +206,7 @@ void CToyIMU::UpdateKalman(const float32_t (&arf32A)[3U], const float32_t (&arf3
     arf32Q[3] = 0.0F;    
 #endif
 
-    Quaternion oQ_pred(m_oXp(0), m_oXp(1), m_oXp(2), m_oXp(3));
+    Quaternion oQ_pred(m_oXp(eSTATE_Q0), m_oXp(eSTATE_Q1), m_oXp(eSTATE_Q2), m_oXp(eSTATE_Q3));
 
     ComputeQuaternion(arf32A, arf32M, arf32Q, arf32Q);
 
@@ -196,7 +218,6 @@ void CToyIMU::UpdateKalman(const float32_t (&arf32A)[3U], const float32_t (&arf3
     // if quaternion is flipped.
     if(f32NormDiff0 > f32NormDiff1)
     {
-        printf("Flip\n");
         arf32Q[0] = -arf32Q[0];
         arf32Q[1] = -arf32Q[1];
         arf32Q[2] = -arf32Q[2];
@@ -216,7 +237,9 @@ void CToyIMU::UpdateKalman(const float32_t (&arf32A)[3U], const float32_t (&arf3
     m_oP = m_oPp - (m_oK*m_oH*m_oPp);
 
     // Normalize.
-    const float32_t f32SumSqrQ = (m_oX(0)*m_oX(0)) + (m_oX(1)*m_oX(1)) + (m_oX(2)*m_oX(2)) + (m_oX(3)*m_oX(3));
+    const float32_t f32SumSqrQ = (m_oX(eSTATE_Q0)*m_oX(eSTATE_Q0)) + (m_oX(eSTATE_Q1)*m_oX(eSTATE_Q1)) + 
+                                 (m_oX(eSTATE_Q2)*m_oX(eSTATE_Q2)) + (m_oX(eSTATE_Q3)*m_oX(eSTATE_Q3));
+
     const float32_t f32NormQ = sqrtf(f32SumSqrQ);
     
     for(uint16_t u16I = 0U; u16I < 4U; u16I++)
@@ -230,27 +253,31 @@ void CToyIMU::UpdateKalman(const float32_t (&arf32A)[3U], const float32_t (&arf3
     m_oP = (m_oJ*m_oP*m_oJ.Transpose());
 
     // Normalize quaternions only.
-    m_oX(0) = m_oX(0) / f32NormQ;
-    m_oX(1) = m_oX(1) / f32NormQ;
-    m_oX(2) = m_oX(2) / f32NormQ;
-    m_oX(3) = m_oX(3) / f32NormQ;
+    m_oX(eSTATE_Q0) = m_oX(eSTATE_Q0) / f32NormQ;
+    m_oX(eSTATE_Q1) = m_oX(eSTATE_Q1) / f32NormQ;
+    m_oX(eSTATE_Q2) = m_oX(eSTATE_Q2) / f32NormQ;
+    m_oX(eSTATE_Q3) = m_oX(eSTATE_Q3) / f32NormQ;
     
 }
 
 void CToyIMU::GetQuaternion(float32_t (&arf32Q)[4U])
 {
-
+    arf32Q[0] = m_oX(eSTATE_Q0);
+    arf32Q[1] = m_oX(eSTATE_Q1);
+    arf32Q[2] = m_oX(eSTATE_Q2);
+    arf32Q[3] = m_oX(eSTATE_Q3);
 }
 
 
-void CToyIMU::GetAngles(float32_t (&arf32Angles)[m_u16NumAxis])
+void CToyIMU::GetAngles(float32_t (&arf32Angles)[eNUM_AXIS])
 {
-    Quaternion oQ(m_oX(0), m_oX(1), m_oX(2), m_oX(3));
-    oQ.ConvertToAngles(arf32Angles);
+    (void)memcpy(&arf32Angles[0], &m_arf32Angles[0], sizeof(arf32Angles));
 }
 
-uint8_t CToyIMU::ComputeQuaternion(const float32_t (&arf32A)[3U], const float32_t (&arf32M)[3U], const float32_t (&arf32InitQ)[4U], float32_t (&arf32Q)[4U])
+uint8_t CToyIMU::ComputeQuaternion(const float32_t (&arf32A)[eNUM_AXIS], const float32_t (&arf32M)[eNUM_AXIS], const float32_t (&arf32InitQ)[4U], float32_t (&arf32Q)[4U])
 {
+    uint8_t u8Sccess = 1U;
+
     const float32_t f32Mu = 1e-4F;
     const uint8_t u8NumConst = 7U;      // The number of constraints.
     const uint8_t u8DimSolution = 4U;   // The dimension of the solution (quaternion)
@@ -342,6 +369,12 @@ uint8_t CToyIMU::ComputeQuaternion(const float32_t (&arf32A)[3U], const float32_
         CMatrix<float32_t, u8DimSolution, 1U> oDeltaQ;
         oDeltaQ = (oH.InvertSymmetric() * oSD);
 
+        if(oDeltaQ.IsValid() == 0U)
+        {
+            u8Sccess = 0U;
+            break;
+        }
+
         CMatrix<float32_t, u8DimSolution, 1U> oQ;
         oQ = oQ_lm - oDeltaQ;
 
@@ -416,5 +449,5 @@ uint8_t CToyIMU::ComputeQuaternion(const float32_t (&arf32A)[3U], const float32_
     arf32Q[2] /= f32NormQ;
     arf32Q[3] /= f32NormQ;
 
-    return 0U;
+    return u8Sccess;
 }
