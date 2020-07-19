@@ -10,12 +10,16 @@ package com.example.controllerapp;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
+import android.Manifest;
 import android.app.AlertDialog;
 import android.bluetooth.BluetoothAdapter;
 
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
 
 import android.view.MotionEvent;
@@ -25,8 +29,10 @@ import android.widget.ImageButton;
 
 public class MainActivity extends AppCompatActivity {
 
-    BluetoothComm btComm;
+
+    BLEComm mBLEComm;
     private static final int REQUEST_ENABLE_BT = 10;
+    private static final int REQUEST_COARSE_LOCATION = 20;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -48,7 +54,11 @@ public class MainActivity extends AppCompatActivity {
         ((ImageButton)findViewById(R.id.buttonTurnLeft)).setOnTouchListener(mTouchEvent);
         ((ImageButton)findViewById(R.id.buttonTurnRight)).setOnTouchListener(mTouchEvent);
 
-        initializeBluetooth();
+        //initializeBluetooth();
+        mBLEComm = new BLEComm();
+        
+        // Before search for Bluetooth device, request ACCESS_COARSE_LOCATION permission.
+        checkLocationPermission();
     }
 
     public void messageBox(String title, String message)
@@ -68,10 +78,37 @@ public class MainActivity extends AppCompatActivity {
         alertDlg.show();
     }
 
+    protected void checkLocationPermission() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) {
+
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.ACCESS_COARSE_LOCATION},  REQUEST_COARSE_LOCATION);
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode,
+                                           String permissions[], int[] grantResults) {
+        switch (requestCode) {
+            case REQUEST_COARSE_LOCATION: {
+                if (grantResults.length > 0
+                        && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+
+                    // If ACCESS_COARSE_LOCATION permission is granted.
+                    initializeBluetooth();
+
+                } else {
+                    //TODO re-request
+                }
+                break;
+            }
+        }
+    }
+
     public void initializeBluetooth()
     {
-        btComm = new BluetoothComm();
-        final int result = btComm.Initialize();
+        final int result = mBLEComm.Initialize(this);
         if(result == -1)
         {
             Intent intent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
@@ -83,7 +120,7 @@ public class MainActivity extends AppCompatActivity {
         }
         else
         {
-            btComm.selectBluetoothDevice(this);
+            mBLEComm.selectBluetoothDevice(this);
 
         }
     }
@@ -97,7 +134,7 @@ public class MainActivity extends AppCompatActivity {
             case REQUEST_ENABLE_BT:
                 if(resultCode == RESULT_OK)
                 {
-                    btComm.selectBluetoothDevice(this);
+                    mBLEComm.selectBluetoothDevice(this);
                 }
                 else
                 {
@@ -126,8 +163,8 @@ public class MainActivity extends AppCompatActivity {
                         break;
                     case R.id.buttonForward:
                         txtDebug.setText("forward pressed");
+                        mBLEComm.sendData("1");
 
-                        btComm.sendData("1");
                         break;
                     case R.id.buttonLeft:
                         txtDebug.setText("left pressed");
@@ -138,7 +175,7 @@ public class MainActivity extends AppCompatActivity {
                     case R.id.buttonBack:
                         txtDebug.setText("back pressed");
 
-                        btComm.sendData("2");
+                        mBLEComm.sendData("2");
                         break;
                     case R.id.buttonTurnLeft:
                         txtDebug.setText("turn left pressed");
@@ -175,6 +212,14 @@ public class MainActivity extends AppCompatActivity {
                 break;
         }
 
+    }
+
+    @Override
+    protected void onDestroy()
+    {
+        mBLEComm.Finalize(this);
+
+        super.onDestroy();
     }
 
 }
