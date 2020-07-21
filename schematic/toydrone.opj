@@ -14,6 +14,21 @@
   (Folder "Referenced Projects")
   (MPSSessionName "JMPark")
   (PartMRUSelector
+    (switch_3pins
+      (FullPartName "switch_3pins.Normal")
+      (LibraryName "D:\WORK\TOYDRONE\SCHEMATIC\LIB_TOYDRONE.OLB")
+      (DeviceIndex "0"))
+    (PORTLEFT-R
+      (LibraryName "C:\CADENCE\SPB_17.2\TOOLS\CAPTURE\LIBRARY\CAPSYM.OLB")
+      (DeviceIndex "0"))
+    (PORTRIGHT-R
+      (LibraryName "C:\CADENCE\SPB_17.2\TOOLS\CAPTURE\LIBRARY\CAPSYM.OLB")
+      (DeviceIndex "0"))
+    (R
+      (FullPartName "R.Normal")
+      (LibraryName
+         "C:\CADENCE\SPB_17.2\TOOLS\CAPTURE\LIBRARY\PSPICE\ANALOG.OLB")
+      (DeviceIndex "0"))
     (AP7361C-33E-13
       (FullPartName "AP7361C-33E-13.Normal")
       (LibraryName "D:\WORK\TOYDRONE\SCHEMATIC\LIB_TOYDRONE.OLB")
@@ -22,12 +37,6 @@
       (FullPartName "C.Normal")
       (LibraryName
          "C:\CADENCE\SPB_17.2\TOOLS\CAPTURE\LIBRARY\PSPICE\ANALOG.OLB")
-      (DeviceIndex "0"))
-    (PORTRIGHT-R
-      (LibraryName "C:\CADENCE\SPB_17.2\TOOLS\CAPTURE\LIBRARY\CAPSYM.OLB")
-      (DeviceIndex "0"))
-    (PORTLEFT-R
-      (LibraryName "C:\CADENCE\SPB_17.2\TOOLS\CAPTURE\LIBRARY\CAPSYM.OLB")
       (DeviceIndex "0"))
     (Connector4x1
       (FullPartName "Connector4x1.Normal")
@@ -44,11 +53,6 @@
     (TLV700
       (FullPartName "TLV700.Normal")
       (LibraryName "D:\WORK\TOYDRONE\SCHEMATIC\LIB_TOYDRONE.OLB")
-      (DeviceIndex "0"))
-    (R
-      (FullPartName "R.Normal")
-      (LibraryName
-         "C:\CADENCE\SPB_17.2\TOOLS\CAPTURE\LIBRARY\PSPICE\ANALOG.OLB")
       (DeviceIndex "0"))
     (d
       (FullPartName "d.Normal")
@@ -90,7 +94,7 @@
       (Path "Design Resources" "Library"
          "d:\work\toydrone\schematic\lib_toydrone.olb")
       (Select "Design Resources" "d:\work\toydrone\schematic\toydrone.dsn"
-         "Design Cache" "AP7361C-33E-13"))
+         "Design Cache" "SZH-MDBL-010"))
     (HierarchyView)
     (Doc
       (Type "COrCapturePMDoc")
@@ -101,7 +105,7 @@
       (Type "COrSchematicDoc")
       (Frame
         (Placement "44 2 3 -1 -1 -8 -31 52 2227 52 741")
-        (Scroll "-395 22")
+        (Scroll "-398 0")
         (Zoom "144")
         (Occurrence "/"))
       (Path "D:\WORK\TOYDRONE\SCHEMATIC\TOYDRONE.DSN")
