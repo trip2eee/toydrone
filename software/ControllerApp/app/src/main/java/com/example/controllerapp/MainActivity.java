@@ -34,6 +34,8 @@ public class MainActivity extends AppCompatActivity {
     private static final int REQUEST_ENABLE_BT = 10;
     private static final int REQUEST_COARSE_LOCATION = 20;
 
+    private static int mAltitudeZ = 100;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -154,16 +156,41 @@ public class MainActivity extends AppCompatActivity {
             // if button is pressed.
             if(action == MotionEvent.ACTION_DOWN)
             {
+                BLECommand cmd = new BLECommand();
+
                 switch(v.getId()) {
                     case R.id.buttonUp:
                         txtDebug.setText("up pressed");
+
+                        mAltitudeZ += 10;
+
+                        if(mAltitudeZ > 255)
+                        {
+                            mAltitudeZ = 255;
+                        }
+                        cmd.cmd = BLECommand.ALTITUDE;
+                        cmd.val = (short)mAltitudeZ;
+                        mBLEComm.sendData(cmd);
+
                         break;
                     case R.id.buttonDown:
                         txtDebug.setText("down pressed");
+
+                        mAltitudeZ -= 10;
+
+                        if(mAltitudeZ <= 0)
+                        {
+                            mAltitudeZ = 0;
+                        }
+
+                        cmd.cmd = BLECommand.ALTITUDE;
+                        cmd.val = (short)mAltitudeZ;
+                        mBLEComm.sendData(cmd);
+
                         break;
                     case R.id.buttonForward:
                         txtDebug.setText("forward pressed");
-                        mBLEComm.sendData("1");
+                        //mBLEComm.sendData("1");
 
                         break;
                     case R.id.buttonLeft:
@@ -175,7 +202,7 @@ public class MainActivity extends AppCompatActivity {
                     case R.id.buttonBack:
                         txtDebug.setText("back pressed");
 
-                        mBLEComm.sendData("2");
+                        //mBLEComm.sendData("2");
                         break;
                     case R.id.buttonTurnLeft:
                         txtDebug.setText("turn left pressed");

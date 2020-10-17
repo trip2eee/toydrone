@@ -1,0 +1,484 @@
+/***
+ * @file  BluetoothComm.java
+ * @brief Bluetooth communication.
+ * @author trip2eee@gmail.com
+ * @date 17, June, 2020
+ * @reference https://yeolco.tistory.com/80
+ */
+
+package com.example.controllerapp;
+
+import android.app.Service;
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothClass;
+import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothGatt;
+import android.bluetooth.BluetoothGattCallback;
+import android.bluetooth.BluetoothManager;
+import android.bluetooth.BluetoothProfile;
+import android.bluetooth.BluetoothSocket;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.DialogInterface;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.os.Build;
+import android.os.Handler;
+import android.content.res.Resources;
+import android.os.IBinder;
+
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.app.AppCompatActivity;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+
+// Device information class.
+class DeviceInfo {
+    public String name;
+    public String address;
+};
+
+public class BLEComm extends Service {
+
+    private BluetoothAdapter mBluetoothAdapter;              // Bluetooth adapter.
+
+    private Set<BluetoothDevice> mDeviceSet;                   // Bluetooth device set.
+    private BluetoothDevice mBluetoothDevice;
+    private BluetoothSocket mBluetoothSocket;
+    private OutputStream mOutputStream = null;
+    private InputStream mInputStream = null;
+    private Thread mWorkerThread = null;
+    private byte[] mReadBuffer;
+    private int mReadBufferPosition;
+
+    private Intent mIntentDeviceList;
+
+    private boolean connected = false;
+
+    private boolean mReceiverRegistered = false;
+
+    public int Initialize(final Context context)
+    {
+        int result;
+
+        //mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        final BluetoothManager bluetoothManager = (BluetoothManager)getSystemService(Context.BLUETOOTH_SERVICE);
+        mBluetoothAdapter = bluetoothManager.getAdapter();
+
+        // If bluetooth adapter is available.
+        if(mBluetoothAdapter != null)
+        {
+            // If bluetooth is turned on.
+            if(mBluetoothAdapter.isEnabled())
+            {
+                if(mReceiverRegistered == false) {
+                    IntentFilter searchFilter = new IntentFilter();
+                    searchFilter.addAction(BluetoothAdapter.ACTION_DISCOVERY_STARTED);
+                    searchFilter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
+                    searchFilter.addAction(BluetoothDevice.ACTION_FOUND);
+                    searchFilter.addAction("com.example.controllerapp.device_sel");
+                    context.registerReceiver(mBluetoothSearchReceiver, searchFilter);
+
+                    mReceiverRegistered = true;
+                }
+
+                result = 1;
+            }
+            else
+            {
+                result = -1;
+            }
+        }
+        else
+        {
+            result = 0;
+        }
+
+
+        return result;
+    }
+
+    public int Finalize(final Context context)
+    {
+        if(mReceiverRegistered == true) {
+            try {
+                context.unregisterReceiver(mBluetoothSearchReceiver);
+
+            }catch(IllegalArgumentException e)
+            {
+                e.printStackTrace();
+            }
+
+        }
+
+        return 0;
+    }
+
+    public void messageBox(Context context, String title, String message)
+    {
+        // No bluetooth adapter.
+        android.app.AlertDialog.Builder alertDlgBuilder = new android.app.AlertDialog.Builder(context);
+
+        alertDlgBuilder.setTitle(title);
+        alertDlgBuilder.setMessage(message).setCancelable(false);
+        alertDlgBuilder.setNegativeButton(context.getString(R.string.ok), new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                dialog.cancel();
+            }
+        });
+        android.app.AlertDialog alertDlg = alertDlgBuilder.create();
+        alertDlg.show();
+    }
+
+    private final BroadcastReceiver mBluetoothSearchReceiver = new BroadcastReceiver() {
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+
+            if(BluetoothAdapter.ACTION_DISCOVERY_STARTED.equals(action)) {
+
+            }
+            else if(BluetoothDevice.ACTION_FOUND.equals(action)) {
+                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+                BluetoothClass.Device deviceClass = new BluetoothClass.Device();
+                String name;
+                name = device.getName();
+                if(name != null) {
+
+                    if(mDeviceSet.contains(device) == false) {
+                        mDeviceSet.add(device);
+
+                        final String address = device.getAddress();
+                        System.out.println("Device found: " + name + " - " + address);
+
+                        Intent iSend = new Intent("com.example.controllerapp.device_name");
+                        iSend.putExtra("device_name", name.toString());
+                        iSend.putExtra("device_addr", address.toString());
+                        context.sendBroadcast(iSend);
+                    }
+                }
+
+            }
+            else if(BluetoothAdapter.ACTION_DISCOVERY_FINISHED.equals(action)) {
+                System.out.println(mDeviceSet.toString());
+
+            }
+            else if(action == "com.example.controllerapp.device_sel")  {
+                String strText = intent.getStringExtra("text");
+                long id = intent.getLongExtra("id", -1);
+
+                final String strName = intent.getStringExtra("name");
+                final String strAddr = intent.getStringExtra("addr");
+
+                System.out.println("Device selected! name: " + strName + " addr: " + strAddr);
+                mBluetoothAdapter.cancelDiscovery();
+
+                connected = connectDevices(context, strName, strAddr);
+
+                if(connected == false)
+                {
+                    messageBox(context, context.getString(R.string.error), context.getString(R.string.connection_fail) + strName);
+                }
+
+            }
+            else {
+                System.out.println("Receiver: " + action.toString());
+            }
+        }
+    };
+
+
+    public void selectBluetoothDevice(final Context context)
+    {
+        mDeviceSet = new HashSet<BluetoothDevice>();
+
+
+        mIntentDeviceList = new Intent(context, DeviceListActivity.class);
+        //mIntentDeviceList.putExtra("device_list", "Device List");
+        //context.startActivity(intent);
+        //((AppCompatActivity)context).startActivityForResult(mIntentDeviceList, 200);
+        ((AppCompatActivity)context).startActivity(mIntentDeviceList);
+
+        System.out.println("Searching for unpaired devices...");
+        // search for unpaired devices.
+        mBluetoothAdapter.startDiscovery();
+        //mBluetoothAdapter.startLeScan();
+
+        /*
+        devices = mBluetoothAdapter.getBondedDevices();
+
+        final int pairedDeviceCount = devices.size();
+
+        // If no paired Bluetooth device.
+        if (pairedDeviceCount == 0) {
+            messageBox(context, context.getString(R.string.error), context.getString(R.string.no_paired_dev));
+        }
+        // If paired devices exist.
+        else {
+            AlertDialog.Builder builder = new AlertDialog.Builder(context);
+            builder.setTitle(context.getString(R.string.bt_dev_list));
+
+            List<String> list = new ArrayList<>();
+
+            for (BluetoothDevice mBluetoothDevice : devices) {
+                list.add(mBluetoothDevice.getName());
+            }
+
+            // list to CharSequence
+            final CharSequence[] charSequences = list.toArray(new CharSequence[list.size()]);
+            list.toArray(new CharSequence[list.size()]);
+
+            builder.setItems(charSequences, new DialogInterface.OnClickListener() {
+
+                @Override
+                public void onClick(DialogInterface dialog, int which) {
+                    // connect to the corresponding device.
+                    connected = connectDevices(charSequences[which].toString());
+
+                    if(connected == false)
+                    {
+                        messageBox(context, context.getString(R.string.error), context.getString(R.string.connection_fail) + charSequences[which]);
+                    }
+                }
+            });
+
+            builder.setCancelable(true);
+            builder.setNegativeButton(context.getString(R.string.cancel), new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialog, int which) {
+                    dialog.cancel();
+                }
+            });
+            AlertDialog alertDialog = builder.create();
+            alertDialog.show();
+
+
+        }
+
+         */
+    }
+
+    private BluetoothSocket createBluetoothSocket(BluetoothDevice device) throws IOException {
+
+        UUID mMyUuid = null;
+        if(Build.VERSION.SDK_INT >= 10)
+        {
+            try {
+                final Method m = device.getClass().getMethod("createInsecureRfcommSocketToServiceRecord", new Class[] { UUID.class });
+                return (BluetoothSocket) m.invoke(device, mMyUuid);
+            } catch (Exception e) {
+                System.out.println(e.toString());
+            }
+        }
+
+        mMyUuid = java.util.UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
+
+        return device.createRfcommSocketToServiceRecord(mMyUuid);
+
+    }
+
+    private BluetoothGatt bluetoothGatt;
+    private int connectionState = STATE_DISCONNECTED;
+
+    private static final int STATE_DISCONNECTED = 0;
+    private static final int STATE_CONNECTING = 1;
+    private static final int STATE_CONNECTED = 2;
+
+    public final static String ACTION_GATT_CONNECTED =
+            "com.example.bluetooth.le.ACTION_GATT_CONNECTED";
+    public final static String ACTION_GATT_DISCONNECTED =
+            "com.example.bluetooth.le.ACTION_GATT_DISCONNECTED";
+    public final static String ACTION_GATT_SERVICES_DISCOVERED =
+            "com.example.bluetooth.le.ACTION_GATT_SERVICES_DISCOVERED";
+    public final static String ACTION_DATA_AVAILABLE =
+            "com.example.bluetooth.le.ACTION_DATA_AVAILABLE";
+    public final static String EXTRA_DATA =
+            "com.example.bluetooth.le.EXTRA_DATA";
+
+    public final static UUID UUID_HEART_RATE_MEASUREMENT =
+            UUID.fromString(SampleGattAttributes.HEART_RATE_MEASUREMENT);
+
+    // Various callback methods defined by the BLE API.
+    private final BluetoothGattCallback gattCallback = new BluetoothGattCallback() {
+        @Override
+        public void onConnectionStateChange(BluetoothGatt gatt, int status,
+                                            int newState) {
+            String intentAction;
+            if (newState == BluetoothProfile.STATE_CONNECTED) {
+                intentAction = ACTION_GATT_CONNECTED;
+                connectionState = STATE_CONNECTED;
+                broadcastUpdate(intentAction);
+                Log.i(TAG, "Connected to GATT server.");
+                Log.i(TAG, "Attempting to start service discovery:" +
+                        bluetoothGatt.discoverServices());
+
+            } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+                intentAction = ACTION_GATT_DISCONNECTED;
+                connectionState = STATE_DISCONNECTED;
+                Log.i(TAG, "Disconnected from GATT server.");
+                broadcastUpdate(intentAction);
+            }
+        }
+
+        @Override
+        // New services discovered
+        public void onServicesDiscovered(BluetoothGatt gatt, int status) {
+            if (status == BluetoothGatt.GATT_SUCCESS) {
+                broadcastUpdate(ACTION_GATT_SERVICES_DISCOVERED);
+            } else {
+                Log.w(TAG, "onServicesDiscovered received: " + status);
+            }
+        }
+
+        @Override
+        // Result of a characteristic read operation
+        public void onCharacteristicRead(BluetoothGatt gatt,
+                                         BluetoothGattCharacteristic characteristic,
+                                         int status) {
+            if (status == BluetoothGatt.GATT_SUCCESS) {
+                broadcastUpdate(ACTION_DATA_AVAILABLE, characteristic);
+            }
+        }
+    };
+
+    public boolean connectDevices(Context context, String strName, String strAddr)
+    {
+        boolean result = true;
+
+        for(BluetoothDevice tempDevice: mDeviceSet)
+        {
+            // TODO: To check address.
+            if(strName.equals(tempDevice.getName()) &&
+               strAddr.equals(tempDevice.getAddress()))
+            {
+                mBluetoothDevice = tempDevice;
+                break;
+            }
+        }
+
+        // UUID for Bluetooth communication.
+        UUID uuid = java.util.UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
+        //UUID uuid = java.util.UUID.fromString("19B10000-E8F2-537E-4F6C-D104768A1214");
+        //UUID uuid = java.util.UUID.fromString("19B10001-E8F2-537E-4F6C-D104768A1214");
+
+
+        // Create socket to communicate with the target device
+        try {
+            mBluetoothDevice.connectGatt(context, false, gattCallback);
+
+
+            mBluetoothSocket = mBluetoothDevice.createRfcommSocketToServiceRecord(uuid);
+            //mBluetoothSocket = createBluetoothSocket(mBluetoothDevice);
+            mBluetoothSocket.connect();
+
+            mOutputStream = mBluetoothSocket.getOutputStream();
+            mInputStream = mBluetoothSocket.getInputStream();
+
+            receiveData();
+        } catch(IOException e) {
+            e.printStackTrace();
+
+            result = false;
+        }
+
+        return result;
+    }
+
+    public void receiveData()
+    {
+        final Handler handler = new Handler();
+
+        mReadBufferPosition = 0;
+        mReadBuffer = new byte[1024];
+
+        mWorkerThread = new Thread(new Runnable() {
+           @Override
+           public void run()
+           {
+               while(Thread.currentThread().isInterrupted()){
+                   try
+                   {
+                       // check if data is received.
+                       int byteAvailable = mInputStream.available();
+
+                       // if data is received.
+                       if(byteAvailable > 0)
+                       {
+                            byte[] bytes = new byte[byteAvailable];
+                            mInputStream.read(bytes);
+
+                            for(int i = 0; i  <byteAvailable; i++)
+                            {
+                                byte tempByte = bytes[i];
+
+                                if(tempByte == '\n')
+                                {
+                                    // copy mReadBuffer array to encodedBytes.
+                                    byte[] encodedBytes = new byte[mReadBufferPosition];
+                                    System.arraycopy(mReadBuffer, 0, encodedBytes, 0, encodedBytes.length);
+
+                                    // convert encoded byte array into string.
+                                    final String text = new String(encodedBytes, "US-ASCII");
+                                    mReadBufferPosition = 0;
+
+                                    System.out.println(text);
+                                    /*
+                                    handler.post(new Runnable() {
+
+                                    });
+
+                                    */
+                                }
+                                // If not new line character.
+                                else
+                                {
+                                    mReadBuffer[mReadBufferPosition++] = tempByte;
+                                }
+                            }
+                       }
+                   } catch(IOException e) {
+                       e.printStackTrace();
+                   }
+
+                   try {
+                       // receive every 1 sec.
+                       Thread.sleep(1000);
+
+                   } catch(InterruptedException e)
+                   {
+                       e.printStackTrace();
+                   }
+               }
+           }
+        });
+
+        mWorkerThread.start();
+    }
+
+    public void sendData(String text)
+    {
+        try {
+            mOutputStream.write(text.getBytes());
+        } catch(Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+
+    @Nullable
+    @Override
+    public IBinder onBind(Intent intent) {
+        return null;
+    }
+}

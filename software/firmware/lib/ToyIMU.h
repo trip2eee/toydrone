@@ -100,7 +100,7 @@ public:
     /**
      * @fn    void GetAngles(float32_t (&arf32Angles)[eNUM_AXIS])
      * @brief This method gives angles.
-     * @param arf32Angles [out] Roll, Pitch, Yaw angles in radian.
+     * @param arf32Angles [out] Roll, Pitch, Yaw angles. unit:radian, range:[0,2PI]
     */
     void GetAngles(float32_t (&arf32Angles)[eNUM_AXIS]);
 

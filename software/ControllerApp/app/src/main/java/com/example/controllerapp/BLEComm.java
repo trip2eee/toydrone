@@ -95,6 +95,14 @@ class BLEProcQueue {
 
 }
 
+class BLECommand {
+    public static final int ROTOR_ON_OFF = 0;
+    public static final int ALTITUDE = 1;
+
+    public int cmd;
+    public short val;
+}
+
 public class BLEComm extends Service {
 
     private BluetoothAdapter mBluetoothAdapter;              // Bluetooth adapter.
@@ -103,6 +111,7 @@ public class BLEComm extends Service {
     private BluetoothGattCharacteristic mGattCharRoll;
     private BluetoothGattCharacteristic mGattCharPitch;
     private BluetoothGattCharacteristic mGattCharYaw;
+    private BluetoothGattCharacteristic mGattCharZ;
 
     private Set<BluetoothDevice> mDeviceSet;                   // Bluetooth device set.
     private BluetoothDevice mBluetoothDevice;
@@ -124,6 +133,7 @@ public class BLEComm extends Service {
     public final static UUID UUID_DRONE_ROLL_CHARACTERISTIC = UUID.fromString("00002A20-0000-1000-8000-00805F9B34FB");
     public final static UUID UUID_DRONE_PITCH_CHARACTERISTIC = UUID.fromString("00002A30-0000-1000-8000-00805F9B34FB");
     public final static UUID UUID_DRONE_YAW_CHARACTERISTIC = UUID.fromString("00002A40-0000-1000-8000-00805F9B34FB");
+    public final static UUID UUID_DRONE_Z_CHARACTERISTIC = UUID.fromString("00002A50-0000-1000-8000-00805F9B34FB");
 
     public int roll = -90;
 
@@ -348,6 +358,11 @@ public class BLEComm extends Service {
                                 boolean enabled = true;
                                 mBluetoothGatt.setCharacteristicNotification(gattChara, enabled);
                             }
+                            else if(gattChara.getUuid().equals(UUID_DRONE_Z_CHARACTERISTIC)) {
+                                mGattCharZ = gattChara;
+                                boolean enabled = true;
+                                mBluetoothGatt.setCharacteristicNotification(gattChara, enabled);
+                            }
 
                         }
                     }
@@ -451,8 +466,14 @@ public class BLEComm extends Service {
         }
     }
 
-    public void sendData(String text)
+    public void sendData(BLECommand cmd)
     {
+        if(cmd.cmd == BLECommand.ALTITUDE)
+        {
+            mGattCharZ.setValue(cmd.val, BluetoothGattCharacteristic.FORMAT_SINT16, 0);
+            mProcQueue.add(mGattCharZ, BLEProcQueue.TX);
+        }
+        /*
         roll += 1;
 
         if(mGattCharRoll.setValue(roll, BluetoothGattCharacteristic.FORMAT_SINT16, 0)) {
@@ -473,6 +494,8 @@ public class BLEComm extends Service {
         mProcQueue.add(mGattCharCommand, BLEProcQueue.TX);
         mProcQueue.add(mGattCharCommand, BLEProcQueue.RX);
 
+        mProcQueue.add(mGattCharZ, BLEProcQueue.TX);
+        */
         processCharacteristicQueue();
     }
 

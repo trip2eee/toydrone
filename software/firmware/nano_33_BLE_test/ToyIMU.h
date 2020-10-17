@@ -22,10 +22,16 @@
           along with this program.  If not, see <https://www.gnu.org/licenses/>.
   
 */
+#ifndef __TOY_IMU_H__
+#define __TOY_IMU_H__
+
 #include "typedef.h"
 #include "Matrix.h"
 
+#ifndef PI
 #define PI 3.141592F
+#endif
+
 #define DEG2RAD(x) ((x) * PI / 180.0F)
 #define RAD2DEG(x) ((x) * 180.0F / PI)
 
@@ -122,3 +128,5 @@ protected:
     void UpdateKalman(const float32_t (&arf32A)[eNUM_AXIS], const float32_t (&arf32M)[eNUM_AXIS]);
 
 };
+
+#endif
